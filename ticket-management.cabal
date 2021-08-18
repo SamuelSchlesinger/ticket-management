@@ -1,0 +1,20 @@
+cabal-version:      2.4
+name:               ticket-management
+version:            0.1.0.0
+author:             Samuel Schlesinger
+maintainer:         samuel@simspace.com
+extra-source-files: CHANGELOG.md
+
+library
+    exposed-modules:  Data.Ticket
+    other-modules:    Imports
+    build-depends:
+      base >=4.4 && <5,
+      text ^>=1.2.4.1,
+      time ^>=1.9.3,
+      containers ^>=0.6,
+      unliftio ^>=0.2.19,
+      cereal ^>=0.5.8.1,
+      bytestring ^>=0.10
+    hs-source-dirs:   src
+    default-language: Haskell2010
