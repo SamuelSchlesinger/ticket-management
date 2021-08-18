@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -42,7 +44,14 @@ data TicketSystem = TicketSystem
   { ticketActions :: [TicketAction]
   , ticketModel :: TicketModel
   }
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+emptyTicketSystem :: TicketSystem
+emptyTicketSystem = TicketSystem
+  { ticketActions = []
+  , ticketModel = emptyTicketModel
+  }
 
 stepTicketModel :: MonadFail m => TicketAction -> TicketModel -> m TicketModel
 stepTicketModel cmd ticketModel = case cmd of
@@ -100,7 +109,26 @@ data TicketAction =
   | ChangeTicketDescription TicketID String
   | CreateRelationship TicketID RelationshipType TicketID
   | RemoveRelationship TicketID RelationshipType TicketID
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+data TicketQuery =
+    GetTicket TicketID
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+getTicket :: MonadFail m => TicketID -> TicketModel -> m Ticket
+getTicket ticketID ticketModel =
+  case Map.lookup ticketID (tickets ticketModel) of
+    Just x -> pure x
+    Nothing -> fail "Could not find ticket"
+
+data TicketStatement =
+    TicketAction TicketAction
+  | TicketQuery TicketQuery
+  | TicketInitialize
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
 
 data TicketStatus =
     ToDo
@@ -109,25 +137,36 @@ data TicketStatus =
   | Merging
   | Merged
   | WontFix
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
 
 data Ticket = Ticket
   { name :: String
   , description :: String
   , status :: TicketStatus
   }
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
 
 newtype TicketID = TicketID { unTicketID :: String }
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving newtype (Serialize, IsString)
 
 data RelationshipType =
     Blocks
   | Subsumes
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
 
 data TicketModel = TicketModel
   { tickets :: Map TicketID Ticket
   , relationships :: Map TicketID (Map RelationshipType (Set TicketID))
   }
-  deriving (Eq, Ord, Show, Read, Generic, Serialize)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+emptyTicketModel :: TicketModel
+emptyTicketModel = TicketModel
+  { tickets = Map.empty
+  , relationships = Map.empty
+  }

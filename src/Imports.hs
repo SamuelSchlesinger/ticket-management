@@ -10,9 +10,13 @@ module Imports
   , foldrM
   , bool
   , (<=<)
+  , lookupEnv
+  , IsString
+  , doesFileExist
   , module Prelude
   ) where
 
+import Data.String (IsString)
 import Data.Foldable (foldrM)
 import Data.Serialize (encode, decode, Serialize)
 import Prelude
@@ -23,3 +27,5 @@ import Data.Map (Map)
 import GHC.Generics (Generic)
 import Data.Bool (bool)
 import Control.Monad ((<=<))
+import System.Environment (lookupEnv)
+import System.Directory (doesFileExist)
