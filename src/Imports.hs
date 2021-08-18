@@ -8,6 +8,8 @@ module Imports
   , decode
   , Serialize
   , foldrM
+  , bool
+  , (<=<)
   , module Prelude
   ) where
 
@@ -19,3 +21,5 @@ import Data.Text (Text)
 import Data.Set (Set)
 import Data.Map (Map)
 import GHC.Generics (Generic)
+import Data.Bool (bool)
+import Control.Monad ((<=<))

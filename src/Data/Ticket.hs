@@ -47,21 +47,28 @@ data TicketSystem = TicketSystem
 stepTicketModel :: MonadFail m => TicketAction -> TicketModel -> m TicketModel
 stepTicketModel cmd ticketModel = case cmd of
   CreateTicket ticketID ticket ->
-    case Map.insertLookupWithKey keepNewValue ticketID ticket (tickets ticketModel) of
-      (Just x, _) -> fail "Attempted to create a ticket which already exists"
-      (Nothing, tickets) -> pure $ ticketModel { tickets }
-  ChangeTicketName ticketID name -> modifyTicket ticketID changeName name
-  ChangeTicketStatus ticketID ticketStatus -> modifyTicket ticketID changeStatus ticketStatus
-  ChangeTicketDescription ticketID description -> modifyTicket ticketID changeDescription description
+    createTicket ticketID ticket
+  ChangeTicketName ticketID name ->
+    modifyTicket ticketID changeName name
+  ChangeTicketStatus ticketID ticketStatus ->
+    modifyTicket ticketID changeStatus ticketStatus
+  ChangeTicketDescription ticketID description ->
+    modifyTicket ticketID changeDescription description
   CreateRelationship ticketID relationshipType ticketID' ->
-    ifExists ticketID ticketModel . ifExists ticketID' ticketModel $ addRelationship ticketID relationshipType ticketID' ticketModel
+    (ifExists ticketID ticketModel . ifExists ticketID' ticketModel)
+      (addRelationship ticketID relationshipType ticketID')
   RemoveRelationship ticketID relationshipType ticketID' ->
-    ifExists ticketID ticketModel . ifExists ticketID' ticketModel $ removeRelationship ticketID relationshipType ticketID' ticketModel
+    (ifExists ticketID ticketModel . ifExists ticketID' ticketModel)
+      (removeRelationship ticketID relationshipType ticketID')
   where
     ifExists :: MonadFail m => TicketID -> TicketModel -> m a -> m a
     ifExists ticketID ticketModel ma = case Map.lookup ticketID (tickets ticketModel) of
       Just x -> ma
       Nothing -> fail "Ticket does not exist"
+    createTicket ticketID ticket = 
+      case Map.insertLookupWithKey keepNewValue ticketID ticket (tickets ticketModel) of
+        (Just x, _) -> fail "Attempted to create a ticket which already exists"
+        (Nothing, tickets) -> pure $ ticketModel { tickets }
     modifyTicket ticketID way change =
       case Map.updateLookupWithKey (way change) ticketID (tickets ticketModel) of
         (Just x, tickets) -> pure $ ticketModel { tickets }
@@ -70,30 +77,18 @@ stepTicketModel cmd ticketModel = case cmd of
     changeName name _ticketID oldValue = Just $ oldValue { name }
     changeStatus status _ticketID oldValue = Just $ oldValue { status }
     changeDescription description _ticketID oldValue = Just $ oldValue { description }
-    addRelationship ticketID relationshipType ticketID' ticketModel = do
+    addRelationship ticketID relationshipType ticketID' = do
       let
-        go' = \case
-          Nothing -> Just $ Set.singleton ticketID'
-          Just s -> Just $ Set.insert ticketID' s
-        go = \case
-          Nothing -> Just $ Map.singleton relationshipType (Set.singleton ticketID')
-          Just m -> Just $ Map.alter go' relationshipType m
+        go' = maybe (Just $ Set.singleton ticketID') (Just . Set.insert ticketID')
+        go = maybe (Just $ Map.singleton relationshipType (Set.singleton ticketID')) (Just . Map.alter go' relationshipType)
         relationships' = Map.alter go ticketID (relationships ticketModel)
       pure $ ticketModel { relationships = relationships' }
-    removeRelationship ticketID relationshipType ticketID' ticketModel = do
+    removeRelationship ticketID relationshipType ticketID' = do
       let
         errMsg = Left "Attempted to delete relationship which does not exist"
-        go'' = \case
-          True -> Right False
-          False -> errMsg
-        go' = \case
-          Just s -> Just <$> Set.alterF go'' ticketID' s
-          Nothing -> errMsg
-        go = \case
-          Just rs -> do
-            rs' <- Map.alterF go' relationshipType rs
-            Right (Just rs')
-          Nothing -> errMsg
+        go'' = bool errMsg (Right False)
+        go' = maybe errMsg (fmap Just . Set.alterF go'' ticketID')
+        go = maybe errMsg (Right . Just <=< Map.alterF go' relationshipType)
       case Map.alterF go ticketID (relationships ticketModel) of
         Left err -> fail err
         Right relationships -> pure $ ticketModel { relationships }
