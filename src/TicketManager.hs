@@ -78,7 +78,7 @@ main = customExecParser ps parser >>= program where
   filterOption = (FilterByName <$> nameOption) <|> (FilterByTag <$> tagOption) <|> (FilterByID <$> idOption) <|> (FilterByStatus <$> statusOption) <|> (FilterByRelationshipTo Blocks <$> blocksTargetOption) <|> (FilterByRelationshipTo Subsumes <$> subsumesTargetOption) <|> (FilterByRelationshipFrom Blocks <$> blockedByTargetOption) <|> (FilterByRelationshipFrom Subsumes <$> subsumedByTargetOption)
   blocksTargetOption = TicketID <$> strOption (long "blocks" <> short 'b')
   subsumesTargetOption = TicketID <$> strOption (long "subsumes" <> short 's')
-  blockedByTargetOption = TicketID <$> strOption (long "blocked-by" <> short 'o')
+  blockedByTargetOption = TicketID <$> strOption (long "blocked-by" <> short 'p')
   subsumedByTargetOption = TicketID <$> strOption (long "subsumed-by" <> short 'k')
   idOption = TicketID <$> strOption (long "id" <> short 'i')
   targetTicketIDOption = strOption (long "target-ticket-id" <> short 't')

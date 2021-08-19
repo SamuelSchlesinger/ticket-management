@@ -25,7 +25,7 @@ Of special note is the help text for the query command:
 ```
 Usage: ticket-manager query [(-n|--name ARG) | (-x|--tag ARG) | (-i|--id ARG) |
                               (-s|--status ARG) | (-b|--blocks ARG) |
-                              (-s|--subsumes ARG) | (-o|--blocked-by ARG) |
+                              (-s|--subsumes ARG) | (-p|--blocked-by ARG) |
                               (-k|--subsumed-by ARG)] [-o|--ordering ARG]
                             [-l|--limit ARG]
   Search for tickets
