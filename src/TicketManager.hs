@@ -25,8 +25,8 @@ main = customExecParser ps parser >>= program where
       fail "No TICKET_SYSTEM environment variable set"
     Just filepath -> do
       case ticketStatement of
-        CommandStatement cmd -> appendCommands filepath [cmd]
-        QueryStatement q -> withTicketSystem filepath (print . queryModel q . ticketModel)
+        CommandStatement cmd -> executeCommands filepath [cmd]
+        QueryStatement q -> withTicketSystem filepath (mapM_ print . queryModel q . ticketModel)
         InitializeStatement -> do
           doesFileExist filepath >>= \case
             True -> fail "Trying to initialize a pre-existing ticket system"
@@ -40,6 +40,7 @@ main = customExecParser ps parser >>= program where
     , command "relate" (info relate (progDesc "Relates two tickets to each other"))
     , command "unrelate" (info unrelate (progDesc "Removes the relationship between two tickets"))
     , command "get" (info get (progDesc "Gets the details of the ticket"))
+    , command "get-all" (info getAll (progDesc "Gets the details of all tickets"))
     , command "init" (info initialize (progDesc "Initializes an empty ticket system"))
     , command "tag" (info tag (progDesc "Applies some tags to tickets"))
     ]
@@ -74,6 +75,7 @@ main = customExecParser ps parser >>= program where
   editName = fmap CommandStatement $ ChangeTicketName <$> ticketIDArgument <*> nameOption
   editStatus = fmap CommandStatement $ ChangeTicketStatus <$> ticketIDArgument <*> statusOption
   editDescription = fmap CommandStatement $ ChangeTicketDescription <$> ticketIDArgument <*> descriptionOption
+  getAll = query (pure AllTickets)
   relate = fmap CommandStatement $ CreateRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
   unrelate = fmap CommandStatement $ RemoveRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
   query contents = fmap QueryStatement $ Query [] <$> many queryOrderingOption <*> queryLimitOption <*> contents

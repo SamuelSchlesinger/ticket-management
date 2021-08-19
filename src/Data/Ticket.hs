@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE BlockArguments #-}
@@ -15,11 +17,14 @@ import qualified Data.ByteString as BS
 import qualified UnliftIO.IO.File as FileIO
 import Imports
 
-appendCommands :: FilePath -> [Command] -> IO ()
-appendCommands filepath actions = withTicketSystem filepath \system -> do
-  newModel <- foldrM stepTicketModel (ticketModel system) actions
-  let newCommands = actions <> ticketCommands system
-  writeTicketSystem filepath $ system { ticketModel = newModel, ticketCommands = newCommands }
+executeCommands :: FilePath -> [Command] -> IO ()
+executeCommands filepath cs = withTicketSystem filepath \system -> appendCommands cs system >>= writeTicketSystem filepath
+
+appendCommands :: MonadFail m => [Command] -> TicketSystem -> m TicketSystem
+appendCommands cs system = do
+  newModel <- foldrM stepTicketModel (ticketModel system) cs
+  let newCommands = cs <> ticketCommands system
+  pure $ TicketSystem newCommands newModel
   
 withTicketSystem :: FilePath -> (TicketSystem -> IO a) -> IO a
 withTicketSystem filepath f = do
@@ -46,6 +51,13 @@ data TicketSystem = TicketSystem
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+
+instance Arbitrary TicketSystem where
+  arbitrary = do
+    cs <- unValidCommandSequence <$> arbitrary
+    case appendCommands cs emptyTicketSystem of
+      Just system -> pure system
+      Nothing -> error "Impossible"
 
 emptyTicketSystem :: TicketSystem
 emptyTicketSystem = TicketSystem
@@ -130,6 +142,14 @@ data Command =
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+instance Arbitrary Command where
+  arbitrary = oneof
+    [ CreateTicket <$> arbitrary <*> arbitrary
+    , ChangeTicketName <$> arbitrary <*> arbitrary
+    , ChangeTicketStatus <$> arbitrary <*> arbitrary
+    , ChangeTicketDescription <$> arbitrary <*> arbitrary
+    ]
+
 data Filter =
     Filter
   deriving stock (Eq, Ord, Show, Read, Generic)
@@ -157,6 +177,7 @@ data Query = Query
 
 data QueryContents =
     GetTicket TicketID
+  | AllTickets
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
@@ -170,14 +191,21 @@ data TicketDetails = TicketDetails
   deriving anyclass (Serialize)
 
 underlyingQuery :: QueryContents -> TicketModel -> [TicketDetails]
-underlyingQuery queryContents ts = case queryContents of
-  GetTicket tdTicketID ->
-    case Map.lookup tdTicketID (tickets ts) of
-      Nothing -> []
-      Just tdTicket ->
-        let tdTags = maybe [] Set.toList $ Map.lookup tdTicketID (tags ts)
-            tdRelationships = maybe [] (fmap (second Set.toList) . Map.toList) $ Map.lookup tdTicketID (relationships ts)
-        in [TicketDetails {tdTicketID, tdTicket, tdTags, tdRelationships}]
+underlyingQuery queryContents ts =
+  let getTags tid = maybe [] Set.toList $ Map.lookup tid (tags ts)
+      getRelationships tid = maybe [] (fmap (second Set.toList) . Map.toList) $ Map.lookup tid (relationships ts)
+  in
+  case queryContents of
+    AllTickets ->
+      let transform tdTicketID tdTicket = TicketDetails { tdTicketID, tdTicket, tdTags = getTags tdTicketID, tdRelationships = getRelationships tdTicketID } in
+      fmap (uncurry transform) $ Map.toList (tickets ts)
+    GetTicket tdTicketID ->
+      case Map.lookup tdTicketID (tickets ts) of
+        Nothing -> []
+        Just tdTicket ->
+          let tdTags = getTags tdTicketID
+              tdRelationships = getRelationships tdTicketID
+          in [TicketDetails {tdTicketID, tdTicket, tdTags, tdRelationships}]
 
 queryModel :: Query -> TicketModel -> [TicketDetails]
 queryModel query = limit . order . filter' . underlyingQuery (queryContents query) where
@@ -213,8 +241,12 @@ data TicketStatus =
   | InReview
   | Complete
   | WontFix
-  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving stock (Eq, Ord, Show, Read, Enum, Bounded, Generic)
   deriving anyclass (Serialize)
+
+instance Arbitrary TicketStatus where
+  arbitrary = elements [ minBound .. maxBound ]
+  shrink = genericShrink
 
 data Ticket = Ticket
   { name :: String
@@ -224,19 +256,34 @@ data Ticket = Ticket
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+instance Arbitrary Ticket where
+  arbitrary = Ticket <$> arbitrary <*> arbitrary <*> arbitrary
+
 newtype TicketID = TicketID { unTicketID :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving newtype (Serialize, IsString)
 
+instance Arbitrary TicketID where
+  arbitrary = TicketID <$> arbitrary
+  shrink = genericShrink
+
 newtype Tag = Tag { unTag :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving newtype (Serialize, IsString)
+
+instance Arbitrary Tag where
+  arbitrary = Tag <$> arbitrary
+  shrink = genericShrink
 
 data RelationshipType =
     Blocks
   | Subsumes
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+
+instance Arbitrary RelationshipType where
+  arbitrary = elements [Blocks, Subsumes]
+  shrink = genericShrink
 
 data TicketModel = TicketModel
   { tickets :: Map TicketID Ticket
@@ -245,6 +292,27 @@ data TicketModel = TicketModel
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+
+instance Arbitrary TicketModel where
+  arbitrary = TicketModel <$> arbitrary <*> arbitrary <*> arbitrary
+  shrink = genericShrink
+
+newtype ValidCommandSequence = ValidCommandSequence { unValidCommandSequence :: [Command] }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+instance Arbitrary ValidCommandSequence where
+  arbitrary = do
+    n <- length <$> (arbitrary @[()])
+    ValidCommandSequence <$> go n emptyTicketSystem
+    where
+      go 0 _ = pure []
+      go n ts = do
+        (ts', c) <- suchThatMap arbitrary (\c -> ((, c) <$> appendCommands [c] ts))
+        cs <- go (n - 1) ts'
+        pure (c : cs)
+  shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ filter p (subsequences commands) where
+    p cs = maybe False (const True) $ appendCommands cs emptyTicketSystem
 
 emptyTicketModel :: TicketModel
 emptyTicketModel = TicketModel

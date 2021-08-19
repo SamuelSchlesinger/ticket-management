@@ -2,6 +2,7 @@ module Imports
   ( UTCTime
   , sortOn
   , (&)
+  , suchThatMap
   , Text
   , Map
   , Set
@@ -17,6 +18,12 @@ module Imports
   , doesFileExist
   , Bifunctor(..)
   , Endo(..)
+  , Arbitrary(..)
+  , choose
+  , oneof
+  , genericShrink
+  , elements
+  , subsequences
   , module Prelude
   ) where
 
@@ -35,5 +42,6 @@ import System.Environment (lookupEnv)
 import System.Directory (doesFileExist)
 import Data.Function ((&))
 import Data.Bifunctor (Bifunctor(..))
-import Data.List (sortOn)
+import Data.List (sortOn, subsequences)
 import Data.Monoid (Endo(..))
+import Test.QuickCheck (Arbitrary(..), choose, oneof, genericShrink, elements, suchThatMap)

@@ -17,7 +17,8 @@ library
       cereal ^>=0.5.8.1,
       bytestring ^>=0.10,
       optparse-applicative ^>=0.16.1.0,
-      directory ^>=1.3.6.1
+      directory ^>=1.3.6.1,
+      QuickCheck ^>=2.14.2
     hs-source-dirs:   src
     ghc-options: -Wall
     default-language: Haskell2010
@@ -28,3 +29,13 @@ executable ticket-manager
     build-depends:
       base, ticket-management
     default-language: Haskell2010
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  build-depends:       base >= 4.4 && < 5,
+                       text >=1.2 && < 2,
+                       QuickCheck ^>=2.14,
+                       ticket-management                 
+  default-language:    Haskell2010
