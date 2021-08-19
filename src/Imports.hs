@@ -1,5 +1,6 @@
 module Imports
   ( UTCTime
+  , when
   , sortOn
   , (&)
   , suchThatMap
@@ -37,7 +38,7 @@ import Data.Set (Set)
 import Data.Map (Map)
 import GHC.Generics (Generic)
 import Data.Bool (bool)
-import Control.Monad ((<=<))
+import Control.Monad ((<=<), when)
 import System.Environment (lookupEnv)
 import System.Directory (doesFileExist)
 import Data.Function ((&))

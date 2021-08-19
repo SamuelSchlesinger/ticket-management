@@ -58,6 +58,7 @@ instance Arbitrary TicketSystem where
     case appendCommands cs emptyTicketSystem of
       Just system -> pure system
       Nothing -> error "Impossible"
+  shrink ts = [ case appendCommands cs emptyTicketSystem of { Just system -> system; Nothing -> error "impossible" } | cs <- prefixes (ticketCommands ts) ]
 
 emptyTicketSystem :: TicketSystem
 emptyTicketSystem = TicketSystem
@@ -75,7 +76,8 @@ stepTicketModel cmd ts = case cmd of
     modifyTicket ticketID changeStatus ticketStatus
   ChangeTicketDescription ticketID description ->
     modifyTicket ticketID changeDescription description
-  CreateRelationship ticketID relationshipType ticketID' ->
+  CreateRelationship ticketID relationshipType ticketID' -> do
+    when (ticketID == ticketID') (fail "cannot make relationship between ticket and itself")
     (ifExists ticketID . ifExists ticketID')
       (addRelationship ticketID relationshipType ticketID')
   RemoveRelationship ticketID relationshipType ticketID' ->
@@ -148,6 +150,10 @@ instance Arbitrary Command where
     , ChangeTicketName <$> arbitrary <*> arbitrary
     , ChangeTicketStatus <$> arbitrary <*> arbitrary
     , ChangeTicketDescription <$> arbitrary <*> arbitrary
+    , CreateRelationship <$> arbitrary <*> arbitrary <*> arbitrary
+    , CreateTags <$> arbitrary <*> arbitrary
+    , RemoveTags <$> arbitrary <*> arbitrary
+    , RemoveRelationship <$> arbitrary <*> arbitrary <*> arbitrary
     ]
 
 data Filter =
@@ -298,16 +304,19 @@ newtype ValidCommandSequence = ValidCommandSequence { unValidCommandSequence :: 
 
 instance Arbitrary ValidCommandSequence where
   arbitrary = do
-    n <- length <$> (arbitrary @[()])
-    ValidCommandSequence <$> go n emptyTicketSystem
+    xs <- arbitrary
+    ValidCommandSequence <$> go xs emptyTicketSystem
     where
-      go 0 _ = pure []
-      go n ts = do
+      go [] _ = pure []
+      go (() : xs) ts = do
         (ts', c) <- suchThatMap arbitrary (\c -> ((, c) <$> appendCommands [c] ts))
-        cs <- go (n - 1) ts'
+        cs <- go xs ts'
         pure (c : cs)
-  shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ filter p (subsequences commands) where
-    p cs = maybe False (const True) $ appendCommands cs emptyTicketSystem
+  shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ prefixes commands
+
+prefixes :: [a] -> [[a]]
+prefixes as@(_ : as') = as : prefixes as'
+prefixes [] = [] : []
 
 emptyTicketModel :: TicketModel
 emptyTicketModel = TicketModel
