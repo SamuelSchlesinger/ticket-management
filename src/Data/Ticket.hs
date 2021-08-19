@@ -58,7 +58,7 @@ instance Arbitrary TicketSystem where
     case appendCommands cs emptyTicketSystem of
       Just system -> pure system
       Nothing -> error "Impossible"
-  shrink ts = [ case appendCommands cs emptyTicketSystem of { Just system -> system; Nothing -> error "impossible" } | cs <- prefixes (ticketCommands ts) ]
+  shrink ts = [ case appendCommands cs emptyTicketSystem of { Just system -> system; Nothing -> error "impossible" } | cs <- init $ inits (ticketCommands ts) ]
 
 emptyTicketSystem :: TicketSystem
 emptyTicketSystem = TicketSystem
@@ -331,11 +331,7 @@ instance Arbitrary ValidCommandSequence where
         (ts', c) <- suchThatMap arbitrary (\c -> ((, c) <$> appendCommands [c] ts))
         cs <- go xs ts'
         pure (c : cs)
-  shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ prefixes commands
-
-prefixes :: [a] -> [[a]]
-prefixes as@(_ : as') = as : prefixes as'
-prefixes [] = [] : []
+  shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ init $ inits commands
 
 emptyTicketModel :: TicketModel
 emptyTicketModel = TicketModel

@@ -25,6 +25,7 @@ module Imports
   , genericShrink
   , elements
   , subsequences
+  , inits
   , module Prelude
   ) where
 
@@ -43,6 +44,6 @@ import System.Environment (lookupEnv)
 import System.Directory (doesFileExist)
 import Data.Function ((&))
 import Data.Bifunctor (Bifunctor(..))
-import Data.List (sortOn, subsequences)
+import Data.List (sortOn, subsequences, inits)
 import Data.Monoid (Endo(..))
 import Test.QuickCheck (Arbitrary(..), choose, oneof, genericShrink, elements, suchThatMap)
