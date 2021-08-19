@@ -151,7 +151,10 @@ instance Arbitrary Command where
     ]
 
 data Filter =
-    Filter
+    FilterByName String
+  | FilterByID TicketID
+  | FilterByTag Tag
+  | FilterByStatus TicketStatus
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
@@ -170,14 +173,7 @@ data Query = Query
   { queryFilters :: [Filter]
   , queryOrderings :: [Ordering]
   , queryLimit :: Limit
-  , queryContents :: QueryContents
   }
-  deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (Serialize)
-
-data QueryContents =
-    GetTicket TicketID
-  | AllTickets
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
@@ -190,27 +186,26 @@ data TicketDetails = TicketDetails
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
-underlyingQuery :: QueryContents -> TicketModel -> [TicketDetails]
-underlyingQuery queryContents ts =
+allTicketDetails :: TicketModel -> [TicketDetails]
+allTicketDetails ts =
   let getTags tid = maybe [] Set.toList $ Map.lookup tid (tags ts)
       getRelationships tid = maybe [] (fmap (second Set.toList) . Map.toList) $ Map.lookup tid (relationships ts)
+      transform tdTicketID tdTicket = TicketDetails { tdTicketID, tdTicket, tdTags = getTags tdTicketID, tdRelationships = getRelationships tdTicketID }
   in
-  case queryContents of
-    AllTickets ->
-      let transform tdTicketID tdTicket = TicketDetails { tdTicketID, tdTicket, tdTags = getTags tdTicketID, tdRelationships = getRelationships tdTicketID } in
-      fmap (uncurry transform) $ Map.toList (tickets ts)
-    GetTicket tdTicketID ->
-      case Map.lookup tdTicketID (tickets ts) of
-        Nothing -> []
-        Just tdTicket ->
-          let tdTags = getTags tdTicketID
-              tdRelationships = getRelationships tdTicketID
-          in [TicketDetails {tdTicketID, tdTicket, tdTags, tdRelationships}]
+    fmap (uncurry transform) $ Map.toList (tickets ts)
 
 queryModel :: Query -> TicketModel -> [TicketDetails]
-queryModel query = limit . order . filter' . underlyingQuery (queryContents query) where
+queryModel query ts = limit . order . filter' $ allTicketDetails ts where
   filter' :: [TicketDetails] -> [TicketDetails]
-  filter' = id
+  filter' = appEndo $ foldMap filterFilter (queryFilters query) where
+    filterFilter = Endo . filter . \case
+      FilterByName n -> (== n) . name . tdTicket
+      FilterByID tid -> (== tid) . tdTicketID
+      FilterByStatus s -> (== s) . status . tdTicket
+      FilterByTag tg -> \td ->
+        case Map.lookup (tdTicketID td) (tags ts) of
+          Just tgs -> Set.member tg tgs
+          Nothing -> False
   order :: [TicketDetails] -> [TicketDetails]
   order = appEndo $ foldMap orderingSort (queryOrderings query) where
     orderingSort = Endo . \case

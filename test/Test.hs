@@ -8,6 +8,7 @@ import Test.QuickCheck
 args :: Args
 args = stdArgs
   { maxSuccess = 1000
+  , chatty = True
   }
 
 main :: IO ()

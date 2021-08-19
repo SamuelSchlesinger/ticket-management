@@ -39,8 +39,7 @@ main = customExecParser ps parser >>= program where
     , command "edit-description" (info editDescription (progDesc "Changes the description of an existing ticket"))
     , command "relate" (info relate (progDesc "Relates two tickets to each other"))
     , command "unrelate" (info unrelate (progDesc "Removes the relationship between two tickets"))
-    , command "get" (info get (progDesc "Gets the details of the ticket"))
-    , command "get-all" (info getAll (progDesc "Gets the details of all tickets"))
+    , command "query" (info query (progDesc "Search for tickets"))
     , command "init" (info initialize (progDesc "Initializes an empty ticket system"))
     , command "tag" (info tag (progDesc "Applies some tags to tickets"))
     ]
@@ -70,16 +69,16 @@ main = customExecParser ps parser >>= program where
     [ ("blocks", Blocks)
     , ("subsumes", Subsumes)
     ]
+  filterOption = (FilterByName <$> nameOption) <|> (FilterByTag <$> tagOption) <|> (FilterByID <$> idOption) <|> (FilterByStatus <$> statusOption)
+  idOption = TicketID <$> strOption (long "id" <> short 'i')
   targetTicketIDOption = strOption (long "target-ticket-id" <> short 't')
   create = fmap CommandStatement $ CreateTicket <$> ticketIDArgument <*> (Ticket <$> nameOption <*> descriptionOption <*> statusOption) where
   editName = fmap CommandStatement $ ChangeTicketName <$> ticketIDArgument <*> nameOption
   editStatus = fmap CommandStatement $ ChangeTicketStatus <$> ticketIDArgument <*> statusOption
   editDescription = fmap CommandStatement $ ChangeTicketDescription <$> ticketIDArgument <*> descriptionOption
-  getAll = query (pure AllTickets)
   relate = fmap CommandStatement $ CreateRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
   unrelate = fmap CommandStatement $ RemoveRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
-  query contents = fmap QueryStatement $ Query [] <$> many queryOrderingOption <*> queryLimitOption <*> contents
-  get = query (GetTicket <$> ticketIDArgument)
+  query = fmap QueryStatement $ Query <$> many filterOption <*> many queryOrderingOption <*> queryLimitOption
   initialize = pure InitializeStatement
 
 byExample :: [(String, t)] -> ReadM t
