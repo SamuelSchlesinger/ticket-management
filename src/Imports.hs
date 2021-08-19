@@ -1,5 +1,7 @@
 module Imports
   ( UTCTime
+  , printf
+  , intercalate
   , when
   , sortOn
   , (&)
@@ -44,6 +46,7 @@ import System.Environment (lookupEnv)
 import System.Directory (doesFileExist)
 import Data.Function ((&))
 import Data.Bifunctor (Bifunctor(..))
-import Data.List (sortOn, subsequences, inits)
+import Data.List (sortOn, subsequences, inits, intercalate)
 import Data.Monoid (Endo(..))
 import Test.QuickCheck (Arbitrary(..), choose, oneof, genericShrink, elements, suchThatMap)
+import Text.Printf (printf)

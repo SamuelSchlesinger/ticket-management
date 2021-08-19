@@ -17,34 +17,33 @@ import qualified Data.ByteString as BS
 import qualified UnliftIO.IO.File as FileIO
 import Imports
 
+-- | Execute the commands on the 'TicketSystem' stored in binary
+-- format at the given file.
 executeCommands :: FilePath -> [Command] -> IO ()
 executeCommands filepath cs = withTicketSystem filepath \system -> appendCommands cs system >>= writeTicketSystem filepath
 
+-- | Append the commands to the 'TicketSystem'.
 appendCommands :: MonadFail m => [Command] -> TicketSystem -> m TicketSystem
 appendCommands cs system = do
   newModel <- foldrM stepTicketModel (ticketModel system) cs
   let newCommands = cs <> ticketCommands system
   pure $ TicketSystem newCommands newModel
   
+-- | Read the provided file for a 'TicketSystem' and run the function on the
+-- 'TicketSystem'.
 withTicketSystem :: FilePath -> (TicketSystem -> IO a) -> IO a
 withTicketSystem filepath f = do
   decode <$> BS.readFile filepath >>= \case
     Left err -> fail err
     Right ticketSystem -> f ticketSystem
 
+-- | Write the ticket system to a file.
 writeTicketSystem :: FilePath -> TicketSystem -> IO ()
 writeTicketSystem filepath ticketSystem = do
   FileIO.writeBinaryFileDurableAtomic filepath (encode ticketSystem)
-
-ticketsByStatus :: (TicketStatus -> Bool) -> TicketModel -> [Ticket]
-ticketsByStatus p ts = filter (p . status) $ Map.elems (tickets ts)
-
-ticketsByName :: (String -> Bool) -> TicketModel -> [Ticket]
-ticketsByName p ts = filter (p . name) $ Map.elems (tickets ts)
-
-ticketsByDescription :: (String -> Bool) -> TicketModel -> [Ticket]
-ticketsByDescription p ts = filter (p . description) $ Map.elems (tickets ts)
-  
+ 
+-- | The sequence of commands which were executed on this ticket system, alongside
+-- the model which is the result of executing these commands on the 'emptyTicketModel'.
 data TicketSystem = TicketSystem
   { ticketCommands :: [Command]
   , ticketModel :: TicketModel
@@ -60,12 +59,14 @@ instance Arbitrary TicketSystem where
       Nothing -> error "Impossible"
   shrink ts = [ case appendCommands cs emptyTicketSystem of { Just system -> system; Nothing -> error "impossible" } | cs <- init $ inits (ticketCommands ts) ]
 
+-- | A 'TicketSystem' with no history of commands or tickets.
 emptyTicketSystem :: TicketSystem
 emptyTicketSystem = TicketSystem
   { ticketCommands = []
   , ticketModel = emptyTicketModel
   }
 
+-- | Evaluate the 'Command' on the 'TicketModel', producing another 'TicketModel'.
 stepTicketModel :: MonadFail m => Command -> TicketModel -> m TicketModel
 stepTicketModel cmd ts = case cmd of
   CreateTicket ticketID ticket ->
@@ -126,6 +127,7 @@ stepTicketModel cmd ts = case cmd of
         Left err -> fail err
         Right relationships -> pure $ ts { relationships }
 
+-- | Expresses an edit to be made to a ticket's metadata.
 data TicketDiff = TicketDiff
   { diffName :: Maybe String
   , diffDescription :: Maybe String
@@ -138,13 +140,20 @@ instance Arbitrary TicketDiff where
   arbitrary = TicketDiff <$> arbitrary <*> arbitrary <*> arbitrary
   shrink = genericShrink
 
+-- | A command to transform the 'TicketSystem'.
 data Command =
     CreateTicket TicketID Ticket
+    -- ^ Create the given ticket
   | ChangeTicket TicketID TicketDiff
+    -- ^ Edit the given ticket
   | CreateRelationship TicketID RelationshipType TicketID
+    -- ^ Create a relationship between two tickets
   | CreateTags TicketID (Set Tag)
+    -- ^ Associate the given tags with the ticket
   | RemoveTags TicketID (Set Tag)
+    -- ^ Remove the given tags from the ticket
   | RemoveRelationship TicketID RelationshipType TicketID
+    -- ^ Remove a relationship between two tickets
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
@@ -158,27 +167,41 @@ instance Arbitrary Command where
     , RemoveRelationship <$> arbitrary <*> arbitrary <*> arbitrary
     ]
 
+-- | Filter the result of executing a 'Query'.
 data Filter =
     FilterByName String
+    -- ^ Accept only tickets with this name
   | FilterByID TicketID
+    -- ^ Accept only tickets with this ID
   | FilterByTag Tag
+    -- ^ Accept only tickets with this tag
   | FilterByStatus TicketStatus
+    -- ^ Accept only tickets with this status
   | FilterByRelationshipTo RelationshipType TicketID
+    -- ^ Accept only tickets with the given relationship to the given ticket, with resulting tickets as the source of the relationship
   | FilterByRelationshipFrom RelationshipType TicketID
+    -- ^ Accept only tickets with the given relationship to the given ticket, with resulting tickets as the target of the relationship
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+-- | Order the result of executing a 'Query'.
 data Ordering =
     OrderByName
+    -- ^ Order results by name
   | OrderByID
+    -- ^ Order results by ID
   | OrderByStatus
+    -- ^ Order results by status
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+-- | Limit the results of executing a 'Query'.
 data Limit = Limit (Maybe Word)
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+-- | A ticket query, allowing the user to search their 'TicketModel' for tickets
+-- that satisfy a certain criteria.
 data Query = Query
   { queryFilters :: [Filter]
   , queryOrderings :: [Ordering]
@@ -187,6 +210,7 @@ data Query = Query
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+-- | The details of a ticket, including not only its metadata but its ID, tags, and relationships.
 data TicketDetails = TicketDetails
   { tdTicketID :: TicketID
   , tdTicket :: Ticket
@@ -196,6 +220,23 @@ data TicketDetails = TicketDetails
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+renderTicketDetails :: TicketDetails -> String
+renderTicketDetails td = 
+  "id: " <> (unTicketID $ tdTicketID td)
+  <^> "name: " <> (name . tdTicket $ td)
+  <^> "description: " <> (description . tdTicket $ td)
+  <^> "tags: " <> (intercalate ", " $ map unTag (tdTags td))
+  <^> "relationships:"
+  <^> foldr (<^>) "" (map renderRelationships (tdRelationships td))
+  where
+    x <^> y = x <> "\n" <> y 
+    spaces n = take n $ repeat ' '
+    renderRelationships (rel, ts) =
+      spaces 2 <> renderRelationship rel <> ": " <> (intercalate ", " $ map unTicketID ts)
+    renderRelationship Blocks = "blocks"
+    renderRelationship Subsumes = "subsumes"
+
+-- | Return all of the tickets' details in the 'TicketModel'.
 allTicketDetails :: TicketModel -> [TicketDetails]
 allTicketDetails ts =
   let getTags tid = maybe [] Set.toList $ Map.lookup tid (tags ts)
@@ -204,6 +245,7 @@ allTicketDetails ts =
   in
     fmap (uncurry transform) $ Map.toList (tickets ts)
 
+-- | Execute a 'Query' on a 'TicketModel', resulting in a number of 'TicketDetails'
 queryModel :: Query -> TicketModel -> [TicketDetails]
 queryModel query ts = limit . order . filter' $ allTicketDetails ts where
   filter' :: [TicketDetails] -> [TicketDetails]
@@ -241,12 +283,8 @@ queryModel query ts = limit . order . filter' $ allTicketDetails ts where
       Limit (Just n) -> take (fromIntegral n)
       Limit Nothing -> id
 
-getTicket :: MonadFail m => TicketID -> TicketModel -> m Ticket
-getTicket ticketID ts =
-  case Map.lookup ticketID (tickets ts) of
-    Just x -> pure x
-    Nothing -> fail "Could not find ticket"
-
+-- | A statement which operates on the 'TicketModel'. These are what the user specifies
+-- by a command line invocation.
 data TicketStatement =
     CommandStatement Command
   | QueryStatement Query
@@ -255,6 +293,7 @@ data TicketStatement =
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
+-- | The status of a ticket.
 data TicketStatus =
     ToDo
   | InProgress
@@ -268,6 +307,7 @@ instance Arbitrary TicketStatus where
   arbitrary = elements [ minBound .. maxBound ]
   shrink = genericShrink
 
+-- | Basic ticket metadata.
 data Ticket = Ticket
   { name :: String
   , description :: String
@@ -279,6 +319,7 @@ data Ticket = Ticket
 instance Arbitrary Ticket where
   arbitrary = Ticket <$> arbitrary <*> arbitrary <*> arbitrary
 
+-- | The ID of a 'Ticket'
 newtype TicketID = TicketID { unTicketID :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving newtype (Serialize, IsString)
@@ -287,6 +328,7 @@ instance Arbitrary TicketID where
   arbitrary = TicketID <$> arbitrary
   shrink = genericShrink
 
+-- | Arbitrary labels to associate with tickets
 newtype Tag = Tag { unTag :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving newtype (Serialize, IsString)
@@ -295,6 +337,7 @@ instance Arbitrary Tag where
   arbitrary = Tag <$> arbitrary
   shrink = genericShrink
 
+-- | The various types of relationships which can be established between tickets
 data RelationshipType =
     Blocks
   | Subsumes
@@ -305,6 +348,7 @@ instance Arbitrary RelationshipType where
   arbitrary = elements [Blocks, Subsumes]
   shrink = genericShrink
 
+-- | The model of tickets, including their metadata, tags, and relationships.
 data TicketModel = TicketModel
   { tickets :: Map TicketID Ticket
   , relationships :: Map TicketID (Map RelationshipType (Set TicketID))
@@ -317,6 +361,8 @@ instance Arbitrary TicketModel where
   arbitrary = TicketModel <$> arbitrary <*> arbitrary <*> arbitrary
   shrink = genericShrink
 
+-- | A newtype wrapper which has an 'Arbitrary' instance which generates valid command sequences,
+-- which will not fail when appended to 'emptyTicketSystem'.
 newtype ValidCommandSequence = ValidCommandSequence { unValidCommandSequence :: [Command] }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
@@ -333,6 +379,7 @@ instance Arbitrary ValidCommandSequence where
         pure (c : cs)
   shrink (ValidCommandSequence commands) = fmap ValidCommandSequence $ init $ inits commands
 
+-- | The empty ticket model
 emptyTicketModel :: TicketModel
 emptyTicketModel = TicketModel
   { tickets = Map.empty

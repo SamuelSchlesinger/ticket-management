@@ -3,7 +3,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module TicketManager (main) where
 
-import Data.List (intercalate)
 import Data.Ticket
 import Options.Applicative
 import Imports
@@ -15,9 +14,13 @@ program ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
   Nothing -> do
     fail "No TICKET_SYSTEM environment variable set"
   Just filepath -> do
+    let
+      go td = do
+        putStr (renderTicketDetails td)
+        putStrLn (take 80 $ repeat '=')
     case ticketStatement of
       CommandStatement cmd -> executeCommands filepath [cmd]
-      QueryStatement q -> withTicketSystem filepath (mapM_ print . queryModel q . ticketModel)
+      QueryStatement q -> withTicketSystem filepath (mapM_ go . queryModel q . ticketModel)
       InitializeStatement -> do
         doesFileExist filepath >>= \case
           True -> fail "Trying to initialize a pre-existing ticket system"
