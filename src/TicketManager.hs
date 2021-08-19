@@ -31,17 +31,23 @@ main = customExecParser ps parser >>= program where
           doesFileExist filepath >>= \case
             True -> fail "Trying to initialize a pre-existing ticket system"
             False -> BS.writeFile filepath (encode emptyTicketSystem)
+        ValidateStatement -> do
+          withTicketSystem filepath \ts -> do
+            case appendCommands (ticketCommands ts) emptyTicketSystem of
+              Nothing -> fail "Ticket system's commands are invalid"
+              Just ts' -> do
+                when (ts' /= ts) (fail "Ticket system's commands do not lead to the model present")
+                putStrLn "Ticket system is valid"
   parser :: ParserInfo TicketStatement
   parser = flip info mods . hsubparser . mconcat $
     [ command "create" (info create (progDesc "Creates a new ticket"))
-    , command "edit-name" (info editName (progDesc "Changes the name of an existing ticket"))
-    , command "edit-status" (info editStatus (progDesc "Changes the status of an existing ticket"))
-    , command "edit-description" (info editDescription (progDesc "Changes the description of an existing ticket"))
+    , command "edit" (info edit (progDesc "Edits the name, description, and/or status of an existing ticket"))
     , command "relate" (info relate (progDesc "Relates two tickets to each other"))
     , command "unrelate" (info unrelate (progDesc "Removes the relationship between two tickets"))
     , command "query" (info query (progDesc "Search for tickets"))
     , command "init" (info initialize (progDesc "Initializes an empty ticket system"))
     , command "tag" (info tag (progDesc "Applies some tags to tickets"))
+    , command "validate" (info validate (progDesc "Validate the ticket system"))
     ]
   mods = header "Ticket Manager!" <> footer "Copyright 2021 (c) Samuel Schlesinger" <> progDesc "Allows the user to manage work tickets."
   tag = fmap CommandStatement $ CreateTags <$> ticketIDArgument <*> (Set.fromList <$> many tagOption)
@@ -69,17 +75,21 @@ main = customExecParser ps parser >>= program where
     [ ("blocks", Blocks)
     , ("subsumes", Subsumes)
     ]
-  filterOption = (FilterByName <$> nameOption) <|> (FilterByTag <$> tagOption) <|> (FilterByID <$> idOption) <|> (FilterByStatus <$> statusOption)
+  filterOption = (FilterByName <$> nameOption) <|> (FilterByTag <$> tagOption) <|> (FilterByID <$> idOption) <|> (FilterByStatus <$> statusOption) <|> (FilterByRelationshipTo Blocks <$> blocksTargetOption) <|> (FilterByRelationshipTo Subsumes <$> subsumesTargetOption) <|> (FilterByRelationshipFrom Blocks <$> blockedByTargetOption) <|> (FilterByRelationshipFrom Subsumes <$> subsumedByTargetOption)
+  blocksTargetOption = TicketID <$> strOption (long "blocks" <> short 'b')
+  subsumesTargetOption = TicketID <$> strOption (long "subsumes" <> short 's')
+  blockedByTargetOption = TicketID <$> strOption (long "blocked-by" <> short 'o')
+  subsumedByTargetOption = TicketID <$> strOption (long "subsumed-by" <> short 'k')
   idOption = TicketID <$> strOption (long "id" <> short 'i')
   targetTicketIDOption = strOption (long "target-ticket-id" <> short 't')
-  create = fmap CommandStatement $ CreateTicket <$> ticketIDArgument <*> (Ticket <$> nameOption <*> descriptionOption <*> statusOption) where
-  editName = fmap CommandStatement $ ChangeTicketName <$> ticketIDArgument <*> nameOption
-  editStatus = fmap CommandStatement $ ChangeTicketStatus <$> ticketIDArgument <*> statusOption
-  editDescription = fmap CommandStatement $ ChangeTicketDescription <$> ticketIDArgument <*> descriptionOption
+  maybeOpt x = (Just <$> x) <|> pure Nothing
+  create = fmap CommandStatement $ CreateTicket <$> ticketIDArgument <*> (Ticket <$> nameOption <*> descriptionOption <*> statusOption)
+  edit = fmap CommandStatement $ ChangeTicket <$> ticketIDArgument <*> (TicketDiff <$> maybeOpt nameOption <*> maybeOpt descriptionOption <*> maybeOpt statusOption)
   relate = fmap CommandStatement $ CreateRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
   unrelate = fmap CommandStatement $ RemoveRelationship <$> ticketIDArgument <*> relationshipTypeOption <*> targetTicketIDOption
   query = fmap QueryStatement $ Query <$> many filterOption <*> many queryOrderingOption <*> queryLimitOption
   initialize = pure InitializeStatement
+  validate = pure ValidateStatement
 
 byExample :: [(String, t)] -> ReadM t
 byExample xs = maybeReader (\x -> Just (lookup x xs)) >>= maybe (readerAbort (ErrorMsg $ "Invalid ticket status, perhaps you meant to try one of: " <> intercalate ", " (fmap fst xs))) pure

@@ -70,12 +70,8 @@ stepTicketModel :: MonadFail m => Command -> TicketModel -> m TicketModel
 stepTicketModel cmd ts = case cmd of
   CreateTicket ticketID ticket ->
     createTicket ticketID ticket
-  ChangeTicketName ticketID name ->
-    modifyTicket ticketID changeName name
-  ChangeTicketStatus ticketID ticketStatus ->
-    modifyTicket ticketID changeStatus ticketStatus
-  ChangeTicketDescription ticketID description ->
-    modifyTicket ticketID changeDescription description
+  ChangeTicket ticketID ticketDiff ->
+    modifyTicket ticketID ticketDiff
   CreateRelationship ticketID relationshipType ticketID' -> do
     when (ticketID == ticketID') (fail "cannot make relationship between ticket and itself")
     (ifExists ticketID . ifExists ticketID')
@@ -108,14 +104,12 @@ stepTicketModel cmd ts = case cmd of
       case Map.insertLookupWithKey keepNewValue ticketID ticket (tickets ts) of
         (Just _, _) -> fail "Attempted to create a ticket which already exists"
         (Nothing, tickets) -> pure $ ts { tickets }
-    modifyTicket ticketID way change =
-      case Map.updateLookupWithKey (way change) ticketID (tickets ts) of
+    modifyTicket ticketID diff  =
+      case Map.updateLookupWithKey (diffTicket diff) ticketID (tickets ts) of
         (Just _, tickets) -> pure $ ts { tickets }
         (Nothing, _) -> fail "Attempted to modify a ticket which doesn't exist"
+    diffTicket diff _ticketID oldValue = Just $ oldValue { name = maybe (name oldValue) id (diffName diff), description = maybe (description oldValue) id (diffDescription diff), status = maybe (status oldValue) id (diffStatus diff) }
     keepNewValue _ticketID newValue _oldValue = newValue
-    changeName name _ticketID oldValue = Just $ oldValue { name }
-    changeStatus status _ticketID oldValue = Just $ oldValue { status }
-    changeDescription description _ticketID oldValue = Just $ oldValue { description }
     addRelationship ticketID relationshipType ticketID' = do
       let
         go' = maybe (Just $ Set.singleton ticketID') (Just . Set.insert ticketID')
@@ -132,11 +126,21 @@ stepTicketModel cmd ts = case cmd of
         Left err -> fail err
         Right relationships -> pure $ ts { relationships }
 
+data TicketDiff = TicketDiff
+  { diffName :: Maybe String
+  , diffDescription :: Maybe String
+  , diffStatus :: Maybe TicketStatus
+  }
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+
+instance Arbitrary TicketDiff where
+  arbitrary = TicketDiff <$> arbitrary <*> arbitrary <*> arbitrary
+  shrink = genericShrink
+
 data Command =
     CreateTicket TicketID Ticket
-  | ChangeTicketName TicketID String
-  | ChangeTicketStatus TicketID TicketStatus
-  | ChangeTicketDescription TicketID String
+  | ChangeTicket TicketID TicketDiff
   | CreateRelationship TicketID RelationshipType TicketID
   | CreateTags TicketID (Set Tag)
   | RemoveTags TicketID (Set Tag)
@@ -147,9 +151,7 @@ data Command =
 instance Arbitrary Command where
   arbitrary = oneof
     [ CreateTicket <$> arbitrary <*> arbitrary
-    , ChangeTicketName <$> arbitrary <*> arbitrary
-    , ChangeTicketStatus <$> arbitrary <*> arbitrary
-    , ChangeTicketDescription <$> arbitrary <*> arbitrary
+    , ChangeTicket <$> arbitrary <*> arbitrary
     , CreateRelationship <$> arbitrary <*> arbitrary <*> arbitrary
     , CreateTags <$> arbitrary <*> arbitrary
     , RemoveTags <$> arbitrary <*> arbitrary
@@ -161,6 +163,8 @@ data Filter =
   | FilterByID TicketID
   | FilterByTag Tag
   | FilterByStatus TicketStatus
+  | FilterByRelationshipTo RelationshipType TicketID
+  | FilterByRelationshipFrom RelationshipType TicketID
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
@@ -212,6 +216,20 @@ queryModel query ts = limit . order . filter' $ allTicketDetails ts where
         case Map.lookup (tdTicketID td) (tags ts) of
           Just tgs -> Set.member tg tgs
           Nothing -> False
+      FilterByRelationshipFrom rel tid -> \td ->
+        case Map.lookup tid (relationships ts) of
+          Just rs ->
+            case Map.lookup rel rs of
+              Just xs -> Set.member (tdTicketID td) xs
+              Nothing -> False
+          Nothing -> False
+      FilterByRelationshipTo rel tid -> \td ->
+        case Map.lookup (tdTicketID td) (relationships ts) of
+          Just rs ->
+            case Map.lookup rel rs of
+              Just xs -> Set.member tid xs
+              Nothing -> False
+          Nothing -> False
   order :: [TicketDetails] -> [TicketDetails]
   order = appEndo $ foldMap orderingSort (queryOrderings query) where
     orderingSort = Endo . \case
@@ -233,6 +251,7 @@ data TicketStatement =
     CommandStatement Command
   | QueryStatement Query
   | InitializeStatement
+  | ValidateStatement
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 

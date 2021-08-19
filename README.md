@@ -10,21 +10,23 @@ Usage: ticket-manager COMMAND
 
 Available commands:
   create                   Creates a new ticket
-  edit-name                Changes the name of an existing ticket
-  edit-status              Changes the status of an existing ticket
-  edit-description         Changes the description of an existing ticket
+  edit                     Edits the name, description, and/or status of an
+                           existing ticket
   relate                   Relates two tickets to each other
   unrelate                 Removes the relationship between two tickets
   query                    Search for tickets
   init                     Initializes an empty ticket system
   tag                      Applies some tags to tickets
+  validate                 Validate the ticket system
 ```
 
 Of special note is the help text for the query command:
 
 ```
 Usage: ticket-manager query [(-n|--name ARG) | (-x|--tag ARG) | (-i|--id ARG) |
-                              (-s|--status ARG)] [-o|--ordering ARG]
+                              (-s|--status ARG) | (-b|--blocks ARG) |
+                              (-s|--subsumes ARG) | (-o|--blocked-by ARG) |
+                              (-k|--subsumed-by ARG)] [-o|--ordering ARG]
                             [-l|--limit ARG]
   Search for tickets
 ```
