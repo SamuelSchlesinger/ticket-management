@@ -9,15 +9,17 @@ Usage: ticket-manager COMMAND
   Allows the user to manage work tickets.
 
 Available commands:
-  create                   Creates a new ticket
-  edit                     Edits the name, description, and/or status of an
-                           existing ticket
-  relate                   Relates two tickets to each other
-  unrelate                 Removes the relationship between two tickets
+  create                   Create a new ticket
+  edit                     Edit the name, description, and status of an existing
+                           ticket
+  relate                   Relate one ticket to another
+  unrelate                 Remove the relationship between two tickets
   query                    Search for tickets
   init                     Initializes an empty ticket system
   tag                      Applies some tags to tickets
   validate                 Validate the ticket system
+  graphviz                 Output a dot formatted file describing a relation
+                           graph
 ```
 
 Of special note is the help text for the query command:

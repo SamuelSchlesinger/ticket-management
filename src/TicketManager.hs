@@ -25,6 +25,7 @@ program ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
         doesFileExist filepath >>= \case
           True -> fail "Trying to initialize a pre-existing ticket system"
           False -> BS.writeFile filepath (encode emptyTicketSystem)
+      GraphViz query rel -> withTicketSystem filepath (putStrLn . graphViz query rel . ticketModel)
       ValidateStatement -> do
         withTicketSystem filepath \ts -> do
           case appendCommands (ticketCommands ts) emptyTicketSystem of
@@ -43,6 +44,7 @@ parser = flip info mods . hsubparser . mconcat $
   , command "init" (info initialize (progDesc "Initializes an empty ticket system"))
   , command "tag" (info tag (progDesc "Applies some tags to tickets"))
   , command "validate" (info validate (progDesc "Validate the ticket system"))
+  , command "graphviz" (info graphviz (progDesc "Output a dot formatted file describing a relation graph"))
   ]
   where
     mods = header "Ticket Manager!" <> footer "Copyright 2021 (c) Samuel Schlesinger" <> progDesc "Allows the user to manage work tickets."
@@ -92,9 +94,12 @@ parser = flip info mods . hsubparser . mconcat $
     edit = fmap CommandStatement $ ChangeTicket <$> ticketIDArgument "The ID of the ticket you want to edit" <*> (TicketDiff <$> maybeOpt nameOption <*> maybeOpt descriptionOption <*> maybeOpt statusOption)
     relate = fmap CommandStatement $ CreateRelationship <$> ticketIDArgument "The ID of the source ticket for the relationship" <*> relationshipTypeOption <*> targetTicketIDOption
     unrelate = fmap CommandStatement $ RemoveRelationship <$> ticketIDArgument "The ID of the source ticket for the relationship you wish to remove" <*> relationshipTypeOption <*> targetTicketIDOption
-    query = fmap QueryStatement $ Query <$> many filterOption <*> many queryOrderingOption <*> queryLimitOption
+    queryBody = Query <$> many filterOption <*> many queryOrderingOption <*> queryLimitOption
+    query = fmap QueryStatement queryBody
     initialize = pure InitializeStatement
     validate = pure ValidateStatement
+    graphRelationOption = option relationshipTypeReadM (long "graph-relation" <> short 'g' <> metavar "GRAPH_RELATION" <> help "The relation we will output a graph for")
+    graphviz = GraphViz <$> queryBody <*> graphRelationOption
 
 byExample :: [(String, t)] -> ReadM t
 byExample xs = maybeReader (\x -> Just (lookup x xs)) >>= maybe (readerAbort (ErrorMsg $ "Invalid ticket status, perhaps you meant to try one of: " <> intercalate ", " (fmap fst xs))) pure

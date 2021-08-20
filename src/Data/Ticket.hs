@@ -245,6 +245,15 @@ allTicketDetails ts =
   in
     fmap (uncurry transform) $ Map.toList (tickets ts)
 
+graphViz :: Query -> RelationshipType -> TicketModel -> String
+graphViz query r ts = "strict digraph { \n" <> intercalate "\n  " (map (\(x, y) -> unTicketID x <> " -> " <> unTicketID y) rs) <> "\n}" where
+  go as = [(x, y) | (x, ys) <- as, y <- Set.toList ys]
+  xs = Set.fromList $ tdTicketID <$> queryModel query ts
+  rs =
+    go $ Map.toList $ Map.map
+      (Set.filter (flip Set.member xs) . maybe Set.empty id . Map.lookup r)
+      (Map.restrictKeys (relationships ts) xs)
+
 -- | Execute a 'Query' on a 'TicketModel', resulting in a number of 'TicketDetails'
 queryModel :: Query -> TicketModel -> [TicketDetails]
 queryModel query ts = limit . order . filter' $ allTicketDetails ts where
@@ -290,6 +299,7 @@ data TicketStatement =
   | QueryStatement Query
   | InitializeStatement
   | ValidateStatement
+  | GraphViz Query RelationshipType
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
 
