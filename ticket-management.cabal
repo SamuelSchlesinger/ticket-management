@@ -3,7 +3,7 @@ name:               ticket-management
 license:            MIT
 synopsis:           A basic implementation of a personal ticket management system
 description:        A basic implementation of a personal ticket management system.
-version:            0.1.0.0
+version:            0.1.1.0
 author:             Samuel Schlesinger
 category:           Development
 maintainer:         samuel@simspace.com

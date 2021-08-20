@@ -25,7 +25,7 @@ executeCommands filepath cs = withTicketSystem filepath \system -> appendCommand
 -- | Append the commands to the 'TicketSystem'.
 appendCommands :: MonadFail m => [Command] -> TicketSystem -> m TicketSystem
 appendCommands cs system = do
-  newModel <- foldrM stepTicketModel (ticketModel system) cs
+  newModel <- foldlM (flip stepTicketModel) (ticketModel system) cs
   let newCommands = cs <> ticketCommands system
   pure $ TicketSystem newCommands newModel
   
@@ -75,16 +75,16 @@ stepTicketModel cmd ts = case cmd of
     modifyTicket ticketID ticketDiff
   CreateRelationship ticketID relationshipType ticketID' -> do
     when (ticketID == ticketID') (fail "cannot make relationship between ticket and itself")
-    (ifExists ticketID . ifExists ticketID')
+    (ifExists "create-relationship-source-ticket" ticketID . ifExists "create-relationship-target-ticket" ticketID')
       (addRelationship ticketID relationshipType ticketID')
   RemoveRelationship ticketID relationshipType ticketID' ->
-    (ifExists ticketID . ifExists ticketID')
+    (ifExists "remove-relationship-source-ticket" ticketID . ifExists "remove-relationship-target-ticket" ticketID')
       (removeRelationship ticketID relationshipType ticketID')
   CreateTags ticketID tgs ->
-    (ifExists ticketID)
+    (ifExists "create-tags-ticket" ticketID)
       (addTags ticketID tgs)
   RemoveTags ticketID tgs ->
-    (ifExists ticketID)
+    (ifExists "remove-tags-ticket" ticketID)
       (removeTags ticketID tgs)
   where
     removeTags ticketID tgs = do
@@ -97,10 +97,10 @@ stepTicketModel cmd ts = case cmd of
         go = maybe (Just $ tgs) (Just . Set.union tgs) 
         newTags = Map.alter go ticketID (tags ts)
       pure $ ts { tags = newTags }
-    ifExists :: MonadFail m => TicketID -> m a -> m a
-    ifExists ticketID ma = case Map.lookup ticketID (tickets ts) of
+    ifExists :: MonadFail m => String -> TicketID -> m a -> m a
+    ifExists msg ticketID ma = case Map.lookup ticketID (tickets ts) of
       Just _ -> ma
-      Nothing -> fail "Ticket does not exist"
+      Nothing -> fail ("Ticket " <> show ticketID <> " does not exist: " <> msg)
     createTicket ticketID ticket = 
       case Map.insertLookupWithKey keepNewValue ticketID ticket (tickets ts) of
         (Just _, _) -> fail "Attempted to create a ticket which already exists"
@@ -358,7 +358,7 @@ data TicketModel = TicketModel
   deriving anyclass (Serialize)
 
 instance Arbitrary TicketModel where
-  arbitrary = TicketModel <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = ticketModel <$> arbitrary
   shrink = genericShrink
 
 -- | A newtype wrapper which has an 'Arbitrary' instance which generates valid command sequences,
@@ -386,3 +386,10 @@ emptyTicketModel = TicketModel
   , relationships = Map.empty
   , tags = Map.empty
   }
+
+example :: [Command]
+example =
+  [ CreateTicket (TicketID {unTicketID = ""}) (Ticket {name = "X\1037744\94716", description = "%V\n\DC4\GSP", status = WontFix})
+  , CreateTicket (TicketID {unTicketID = "M\187880_r\SI"}) (Ticket {name = "oi\24117\ETB\SO\NUL", description = "\1036589r\FS\DC1", status = InProgress})
+  , CreateTags (TicketID {unTicketID = ""}) (Set.fromList [])
+  ]

@@ -13,7 +13,7 @@ module Imports
   , encode
   , decode
   , Serialize
-  , foldrM
+  , foldlM
   , bool
   , (<=<)
   , lookupEnv
@@ -32,7 +32,7 @@ module Imports
   ) where
 
 import Data.String (IsString)
-import Data.Foldable (foldrM)
+import Data.Foldable (foldlM)
 import Data.Serialize (encode, decode, Serialize)
 import Prelude hiding (Ordering)
 import Data.Time.Clock (UTCTime)
