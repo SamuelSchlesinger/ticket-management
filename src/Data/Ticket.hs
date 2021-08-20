@@ -386,10 +386,3 @@ emptyTicketModel = TicketModel
   , relationships = Map.empty
   , tags = Map.empty
   }
-
-example :: [Command]
-example =
-  [ CreateTicket (TicketID {unTicketID = ""}) (Ticket {name = "X\1037744\94716", description = "%V\n\DC4\GSP", status = WontFix})
-  , CreateTicket (TicketID {unTicketID = "M\187880_r\SI"}) (Ticket {name = "oi\24117\ETB\SO\NUL", description = "\1036589r\FS\DC1", status = InProgress})
-  , CreateTags (TicketID {unTicketID = ""}) (Set.fromList [])
-  ]
