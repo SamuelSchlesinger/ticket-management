@@ -19,24 +19,11 @@ function query(q : Query): Promise<TicketDetails[]> {
 } 
 
 export function App() {
-  const [filters, setFilters] = React.useState<Filter[]>([]);
-  const [orders, setOrders] = React.useState<Ordering[]>([]);
-  const [limit, setLimit] = React.useState<number>(100);
-  const [tickets, setTickets] = React.useState<TicketDetails[]>([]);
-  React.useEffect(() =>
-    { const setEm = async () =>
-      { const ts = await query({queryFilters: filters, queryOrderings: orders, queryLimit: limit});
-        setTickets(ts);
-      };
-      setEm();
-    }
-    , []);
   return (
     <div className="App">
       <header className="App-header">
         <h1> Ticket System </h1>
-        <FilterMenu filters={filters} setFilters={setFilters}/>
-        <Tickets tickets={tickets}/>
+        <Tickets />
       </header>
     </div>
   );
@@ -53,7 +40,6 @@ function mkFilter(filterType: FilterType, inputText: string): Filter {
     case "id":
       return { tag: "FilterByID", contents: { unTicketID: inputText } };
     case "status":
-      const f = (s: TicketStatus) => { return { tag: "FilterByStatus", contents: s } }
       switch (inputText) {
         case "ToDo":
           return { tag: "FilterByStatus", contents: "ToDo" };
@@ -114,7 +100,7 @@ function renderFilter(f: Filter): string {
   }
 }
 
-function FilterMenu(props: { filters: Filter[], setFilters: React.Dispatch<React.SetStateAction<Filter[]>> }) {
+function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
   const [inputText, setInputText] = React.useState("");
   const [filterType, setFilterType] = React.useState<FilterType>("name");
   const handleFilterTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -124,24 +110,20 @@ function FilterMenu(props: { filters: Filter[], setFilters: React.Dispatch<React
     setInputText(event.target.value);
   const handleDeleteItem = (item: Filter) => (
     _event: React.MouseEvent<HTMLButtonElement>
-  ) => props.setFilters((fs) => fs.filter((item_) => {
-      return !equal(item_, item);
-    })
-  );
+  ) => props.setQuery((q) => { return { ...q, queryFilters: q.queryFilters.filter((item_) => !equal(item_, item)) }; });
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    props.setFilters((fs) => {
+    props.setQuery((q) => {
         const f = mkFilter(filterType, inputText);
-        if (fs.every((item) => !equal(item, f))) { 
-          return fs.concat(f);
+        if (q.queryFilters.every((item) => !equal(item, f))) { 
+          return {...q, queryFilters: props.query.queryFilters.concat(f)};
         } else {
-          return fs;
+          return q;
         }
       }
     );
     setInputText("");
   };
-
   return (
     <div className="FilterMenu">
       <section>
@@ -173,7 +155,7 @@ function FilterMenu(props: { filters: Filter[], setFilters: React.Dispatch<React
       </section>
       <section>
         <ul id="filters">
-          {props.filters.map((item) => (
+          {props.query.queryFilters.map((item) => (
             <li key={JSON.stringify(item)}>
               {renderFilter(item)}
               <button onClick={handleDeleteItem(item)}>×</button>
@@ -181,6 +163,40 @@ function FilterMenu(props: { filters: Filter[], setFilters: React.Dispatch<React
           ))}
         </ul>
       </section>
+    </div>
+  );
+}
+
+function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
+  const [ordering, setOrdering] = React.useState<Ordering>("OrderByID" as Ordering);
+  const translateOrdering = (s: string) => {
+    if (s === "id") {
+      return "OrderByID" as Ordering;
+    } else if (s === "name") {
+      return "OrderByName" as Ordering;
+    } else if (s === "status") {
+      return "OrderByStatus" as Ordering;
+    } else {
+      throw new Error("Impossible");
+    }
+  };
+  const handleOrderingChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const o = translateOrdering(event.target.value);
+    setOrdering(o);
+    props.setQuery((q) => { return {...q, queryOrderings: [o] }; });
+  };
+  return (
+    <div className="OrderingMenu">
+      <form>
+        <label>
+          Choose Ordering
+          <select name="ordering" id="ordering" onChange={handleOrderingChange}>
+            <option value="id"> ID </option>
+            <option value="name"> Name </option>
+            <option value="status"> Status </option>
+          </select>
+        </label>
+      </form>
     </div>
   );
 }
@@ -200,17 +216,36 @@ function TicketDetailsView(props: { td: TicketDetails }) {
   );
 }
 
-function Tickets(props: { tickets: [TicketDetails]}) {
+function Tickets() {
+  const [q, setQuery] = React.useState<Query>({ queryFilters: [], queryOrderings: [], queryLimit: 100 });
+  const [ tickets, setTickets ] = React.useState<TicketDetails[]>([]) 
+  React.useEffect(() =>
+    { const setEm = async () =>
+      { const ts = await query(q);
+        setTickets(ts);
+      };
+      setEm();
+    }
+    , [q]);
   return (
-    <ul id="tickets">
-      { props.tickets.map(td =>
-        { return ( <li>
-                   <TicketDetailsView td={td} key={td.tdTicketID.unTicketID} />
-                   </li>
-          );
-        }
-      )
-      }
-    </ul>
+    <div className="Tickets">
+      <section>
+        <FilterMenu query={q} setQuery={setQuery}/>
+        <OrderingMenu query={q} setQuery={setQuery}/>
+      </section>
+      <section> { JSON.stringify(q) } </section>
+      <section>
+        <ul id="tickets">
+          { tickets.map(td =>
+            { return ( <li>
+                       <TicketDetailsView td={td} key={td.tdTicketID.unTicketID} />
+                       </li>
+              );
+            }
+          )
+          }
+        </ul>
+      </section>
+    </div>
   );
   }
