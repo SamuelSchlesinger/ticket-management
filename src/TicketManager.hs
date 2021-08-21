@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-module TicketManager (main) where
+module TicketManager (main, program, runQuery, runCommands, runValidate, runInit, runGraphViz) where
 
 import Data.Ticket
 import Options.Applicative
@@ -9,30 +9,47 @@ import Imports
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
 
-program :: TicketStatement -> IO ()
-program ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
-  Nothing -> do
-    fail "No TICKET_SYSTEM environment variable set"
-  Just filepath -> do
-    let
-      go td = do
-        putStr (renderTicketDetails td)
-        putStrLn (take 80 $ repeat '=')
-    case ticketStatement of
-      CommandStatement cmd -> executeCommands filepath [cmd]
-      QueryStatement q -> withTicketSystem filepath (mapM_ go . queryModel q . ticketModel)
-      InitializeStatement -> do
-        doesFileExist filepath >>= \case
-          True -> fail "Trying to initialize a pre-existing ticket system"
-          False -> BS.writeFile filepath (encode emptyTicketSystem)
-      GraphViz query rel -> withTicketSystem filepath (putStrLn . graphViz query rel . ticketModel)
-      ValidateStatement -> do
-        withTicketSystem filepath \ts -> do
-          case appendCommands (ticketCommands ts) emptyTicketSystem of
-            Nothing -> fail "Ticket system's commands are invalid"
-            Just ts' -> do
-              when (ts' /= ts) (fail "Ticket system's commands do not lead to the model present")
-              putStrLn "Ticket system is valid"
+program' :: TicketStatement -> IO ()
+program' ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
+  Nothing -> fail "No TICKET_SYSTEM environment variable set"
+  Just filepath -> program filepath ticketStatement
+
+runCommands :: FilePath -> [Command] -> IO ()
+runCommands filepath cs = executeCommands filepath cs
+
+runQuery :: FilePath -> Query -> IO [TicketDetails]
+runQuery filepath q = withTicketSystem filepath (pure . queryModel q . ticketModel)
+
+runValidate :: FilePath -> IO Bool
+runValidate filepath = withTicketSystem filepath \ts -> do
+  case appendCommands (ticketCommands ts) emptyTicketSystem of
+    Nothing -> pure False
+    Just ts' -> pure $ ts == ts'
+
+runInit :: FilePath -> IO Bool
+runInit filepath = doesFileExist filepath >>= \case
+  True -> pure False
+  False -> True <$ BS.writeFile filepath (encode emptyTicketSystem)
+
+runGraphViz :: FilePath -> RelationshipType -> Query -> IO String
+runGraphViz filepath rel q = withTicketSystem filepath (pure . graphViz q rel . ticketModel)
+
+program :: FilePath -> TicketStatement -> IO ()
+program filepath ticketStatement = do
+  let
+    go td = do
+      putStr (renderTicketDetails td)
+      putStrLn (take 80 $ repeat '=')
+  case ticketStatement of
+    CommandStatement cmd -> runCommands filepath [cmd]
+    QueryStatement q -> mapM_ go =<< runQuery filepath q
+    InitializeStatement -> runInit filepath >>= \case
+        True -> fail "Trying to initialize a pre-existing ticket system"
+        False -> putStrLn "Ticket system initialized"
+    GraphViz query rel -> runGraphViz filepath rel query >>= putStrLn
+    ValidateStatement -> runValidate filepath >>= \case
+          False -> fail "Ticket system's commands are invalid"
+          True -> putStrLn "Ticket system is valid"
 
 parser :: ParserInfo TicketStatement
 parser = flip info mods . hsubparser . mconcat $
@@ -105,7 +122,7 @@ byExample :: [(String, t)] -> ReadM t
 byExample xs = maybeReader (\x -> Just (lookup x xs)) >>= maybe (readerAbort (ErrorMsg $ "Invalid ticket status, perhaps you meant to try one of: " <> intercalate ", " (fmap fst xs))) pure
 
 main :: IO ()
-main = customExecParser ps parser >>= program where
+main = customExecParser ps parser >>= program' where
   ps :: ParserPrefs
   ps = prefs . mconcat $
     [ disambiguate

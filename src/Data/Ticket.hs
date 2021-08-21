@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -50,6 +51,7 @@ data TicketSystem = TicketSystem
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketSystem
 
 instance Arbitrary TicketSystem where
   arbitrary = do
@@ -135,6 +137,7 @@ data TicketDiff = TicketDiff
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketDiff
 
 instance Arbitrary TicketDiff where
   arbitrary = TicketDiff <$> arbitrary <*> arbitrary <*> arbitrary
@@ -156,7 +159,7 @@ data Command =
     -- ^ Remove a relationship between two tickets
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
-
+  deriving (ToJSON, FromJSON) via Json Command
 instance Arbitrary Command where
   arbitrary = oneof
     [ CreateTicket <$> arbitrary <*> arbitrary
@@ -183,6 +186,7 @@ data Filter =
     -- ^ Accept only tickets with the given relationship to the given ticket, with resulting tickets as the target of the relationship
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json Filter
 
 -- | Order the result of executing a 'Query'.
 data Ordering =
@@ -194,11 +198,13 @@ data Ordering =
     -- ^ Order results by status
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json Ordering
 
 -- | Limit the results of executing a 'Query'.
 data Limit = Limit (Maybe Word)
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json Limit
 
 -- | A ticket query, allowing the user to search their 'TicketModel' for tickets
 -- that satisfy a certain criteria.
@@ -209,6 +215,7 @@ data Query = Query
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json Query
 
 -- | The details of a ticket, including not only its metadata but its ID, tags, and relationships.
 data TicketDetails = TicketDetails
@@ -219,6 +226,7 @@ data TicketDetails = TicketDetails
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketDetails
 
 renderTicketDetails :: TicketDetails -> String
 renderTicketDetails td = 
@@ -302,6 +310,7 @@ data TicketStatement =
   | GraphViz Query RelationshipType
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketStatement
 
 -- | The status of a ticket.
 data TicketStatus =
@@ -312,6 +321,7 @@ data TicketStatus =
   | WontFix
   deriving stock (Eq, Ord, Show, Read, Enum, Bounded, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketStatus
 
 instance Arbitrary TicketStatus where
   arbitrary = elements [ minBound .. maxBound ]
@@ -325,6 +335,7 @@ data Ticket = Ticket
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json Ticket
 
 instance Arbitrary Ticket where
   arbitrary = Ticket <$> arbitrary <*> arbitrary <*> arbitrary
@@ -332,7 +343,8 @@ instance Arbitrary Ticket where
 -- | The ID of a 'Ticket'
 newtype TicketID = TicketID { unTicketID :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving newtype (Serialize, IsString)
+  deriving newtype (Serialize, IsString, ToJSONKey, FromJSONKey)
+  deriving (ToJSON, FromJSON) via Json TicketID
 
 instance Arbitrary TicketID where
   arbitrary = TicketID <$> arbitrary
@@ -342,6 +354,7 @@ instance Arbitrary TicketID where
 newtype Tag = Tag { unTag :: String }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving newtype (Serialize, IsString)
+  deriving (ToJSON, FromJSON) via Json Tag
 
 instance Arbitrary Tag where
   arbitrary = Tag <$> arbitrary
@@ -352,7 +365,18 @@ data RelationshipType =
     Blocks
   | Subsumes
   deriving stock (Eq, Ord, Show, Read, Generic)
-  deriving anyclass (Serialize)
+  deriving anyclass (Serialize, ToJSONKey, FromJSONKey)
+  deriving (ToJSON, FromJSON) via Json RelationshipType
+
+instance ToHttpApiData RelationshipType where
+  toUrlPiece = \case
+    Blocks -> "blocks"
+    Subsumes -> "subsumes"
+
+instance FromHttpApiData RelationshipType where
+  parseUrlPiece "blocks" = Right Blocks
+  parseUrlPiece "subsumes" = Right Subsumes
+  parseUrlPiece _ = Left "Try one of: blocks, subsumes"
 
 instance Arbitrary RelationshipType where
   arbitrary = elements [Blocks, Subsumes]
@@ -366,6 +390,7 @@ data TicketModel = TicketModel
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json TicketModel
 
 instance Arbitrary TicketModel where
   arbitrary = ticketModel <$> arbitrary
@@ -376,6 +401,7 @@ instance Arbitrary TicketModel where
 newtype ValidCommandSequence = ValidCommandSequence { unValidCommandSequence :: [Command] }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json ValidCommandSequence
 
 instance Arbitrary ValidCommandSequence where
   arbitrary = do
