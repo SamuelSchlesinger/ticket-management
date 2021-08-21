@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -16,6 +18,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
 import qualified UnliftIO.IO.File as FileIO
+import qualified Data.Aeson.TypeScript.TH as TS
 import Imports
 
 -- | Execute the commands on the 'TicketSystem' stored in binary
@@ -201,7 +204,7 @@ data Ordering =
   deriving (ToJSON, FromJSON) via Json Ordering
 
 -- | Limit the results of executing a 'Query'.
-data Limit = Limit (Maybe Word)
+data Limit = Limit (Maybe Int)
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json Limit
@@ -308,6 +311,7 @@ data TicketStatement =
   | InitializeStatement
   | ValidateStatement
   | GraphViz Query RelationshipType
+  | TypeScript
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json TicketStatement
@@ -422,3 +426,16 @@ emptyTicketModel = TicketModel
   , relationships = Map.empty
   , tags = Map.empty
   }
+
+$(TS.deriveTypeScript aesonOptions ''TicketDetails)
+$(TS.deriveTypeScript aesonOptions ''Command)
+$(TS.deriveTypeScript aesonOptions ''TicketID)
+$(TS.deriveTypeScript aesonOptions ''Ticket)
+$(TS.deriveTypeScript aesonOptions ''TicketStatus)
+$(TS.deriveTypeScript aesonOptions ''TicketDiff)
+$(TS.deriveTypeScript aesonOptions ''Tag)
+$(TS.deriveTypeScript aesonOptions ''RelationshipType)
+$(TS.deriveTypeScript aesonOptions ''Filter)
+$(TS.deriveTypeScript aesonOptions ''Limit)
+$(TS.deriveTypeScript aesonOptions ''Ordering)
+$(TS.deriveTypeScript aesonOptions ''Query)

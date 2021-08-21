@@ -1,2 +1,4 @@
 dist-newstyle/
 tickets
+node_modules/
+build/

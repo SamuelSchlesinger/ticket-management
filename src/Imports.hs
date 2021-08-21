@@ -28,6 +28,7 @@ module Imports
   , choose
   , ToJSON
   , FromJSON
+  , Proxy(..)
   , FromJSONKey
   , oneof
   , genericShrink
@@ -35,6 +36,7 @@ module Imports
   , subsequences
   , inits
   , ToJSONKey
+  , aesonOptions
   , ToHttpApiData(..)
   , FromHttpApiData(..)
   , module Prelude
@@ -62,6 +64,7 @@ import Text.Printf (printf)
 import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import qualified Data.Aeson as Aeson
 import Servant.API (ToHttpApiData(..), FromHttpApiData(..))
+import Data.Proxy (Proxy(..))
 
 newtype Json a = Json { unJson :: a }
 
@@ -71,3 +74,6 @@ instance (Generic a, Aeson.GToJSON' Aeson.Encoding Aeson.Zero (Rep a), Aeson.GTo
 
 instance (Generic a, Aeson.GFromJSON Aeson.Zero (Rep a)) => FromJSON (Json a) where
   parseJSON val = Json <$> Aeson.genericParseJSON Aeson.defaultOptions val
+
+aesonOptions :: Aeson.Options
+aesonOptions = Aeson.defaultOptions

@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -8,6 +9,8 @@ import Options.Applicative
 import Imports
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
+import Data.List (nub)
+import Data.Aeson.TypeScript.TH (formatTSDeclarations', getTypeScriptDeclarations, FormattingOptions(..), ExportMode(ExportEach), SumTypeFormat(EnumWithType))
 
 program' :: TicketStatement -> IO ()
 program' ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
@@ -34,6 +37,15 @@ runInit filepath = doesFileExist filepath >>= \case
 runGraphViz :: FilePath -> RelationshipType -> Query -> IO String
 runGraphViz filepath rel q = withTicketSystem filepath (pure . graphViz q rel . ticketModel)
 
+typeScriptFormattingOptions :: FormattingOptions
+typeScriptFormattingOptions = FormattingOptions
+  { numIndentSpaces = 2
+  , interfaceNameModifier = id
+  , typeNameModifier = id
+  , exportMode = ExportEach
+  , typeAlternativesFormat = EnumWithType
+  }
+
 program :: FilePath -> TicketStatement -> IO ()
 program filepath ticketStatement = do
   let
@@ -50,6 +62,22 @@ program filepath ticketStatement = do
     ValidateStatement -> runValidate filepath >>= \case
           False -> fail "Ticket system's commands are invalid"
           True -> putStrLn "Ticket system is valid"
+    TypeScript -> do
+      putStrLn $ formatTSDeclarations' typeScriptFormattingOptions . nub . mconcat $ [
+        getTypeScriptDeclarations (Proxy @TicketDetails),
+        getTypeScriptDeclarations (Proxy @Query),
+        getTypeScriptDeclarations (Proxy @Command),
+        getTypeScriptDeclarations (Proxy @RelationshipType),
+        getTypeScriptDeclarations (Proxy @TicketID),
+        getTypeScriptDeclarations (Proxy @Ticket),
+        getTypeScriptDeclarations (Proxy @TicketStatus),
+        getTypeScriptDeclarations (Proxy @TicketDiff),
+        getTypeScriptDeclarations (Proxy @Filter),
+        getTypeScriptDeclarations (Proxy @Ordering),
+        getTypeScriptDeclarations (Proxy @Limit),
+        getTypeScriptDeclarations (Proxy @Ordering),
+        getTypeScriptDeclarations (Proxy @Tag)
+        ]
 
 parser :: ParserInfo TicketStatement
 parser = flip info mods . hsubparser . mconcat $
@@ -62,6 +90,7 @@ parser = flip info mods . hsubparser . mconcat $
   , command "tag" (info tag (progDesc "Applies some tags to tickets"))
   , command "validate" (info validate (progDesc "Validate the ticket system"))
   , command "graphviz" (info graphviz (progDesc "Output a dot formatted file describing a relation graph"))
+  , command "typescript" (info typescript (progDesc "Output typescript declarations for the servant API"))
   ]
   where
     mods = header "Ticket Manager!" <> footer "Copyright 2021 (c) Samuel Schlesinger" <> progDesc "Allows the user to manage work tickets."
@@ -117,6 +146,7 @@ parser = flip info mods . hsubparser . mconcat $
     validate = pure ValidateStatement
     graphRelationOption = option relationshipTypeReadM (long "graph-relation" <> short 'g' <> metavar "GRAPH_RELATION" <> help "The relation we will output a graph for")
     graphviz = GraphViz <$> queryBody <*> graphRelationOption
+    typescript = pure TypeScript
 
 byExample :: [(String, t)] -> ReadM t
 byExample xs = maybeReader (\x -> Just (lookup x xs)) >>= maybe (readerAbort (ErrorMsg $ "Invalid ticket status, perhaps you meant to try one of: " <> intercalate ", " (fmap fst xs))) pure
