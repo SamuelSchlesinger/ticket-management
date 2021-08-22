@@ -1,20 +1,21 @@
 import React from 'react';
 import equal from 'fast-deep-equal';
 import './App.css';
-import { Query, TicketDetails, Filter, Ordering, TicketStatus } from './Api';
+import { OrderingDirection, Query, TicketDetails, Filter, Ordering } from './Api';
 
 function query(q : Query): Promise<TicketDetails[]> {
-  return fetch('http://localhost:3001/query', { method: 'POST',
-            mode: 'cors', // no-cors, *cors, same-origin
-            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-            credentials: 'omit', // include, *same-origin, omit
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            redirect: 'follow', // manual, *follow, error
-            referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-            body: JSON.stringify(q) // body data type must match "Content-Type" header
-            }
+  return fetch('http://localhost:3001/query',
+    { method: 'POST',
+      mode: 'cors', // no-cors, *cors, same-origin
+      cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+      credentials: 'omit', // include, *same-origin, omit
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      redirect: 'follow', // manual, *follow, error
+      referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+      body: JSON.stringify(q) // body data type must match "Content-Type" header
+      }
   ).then(result => result.json());
 } 
 
@@ -126,9 +127,9 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
   };
   return (
     <div className="FilterMenu">
-      <section>
+      <section id="filter-type-input">
         <label>
-          Choose Filter Type
+          <p className="menu-label"> Filter </p>
           <select name="filter-type" id="filter-type" onChange={handleFilterTypeChange}>
             <option value="name"> Name </option>
             <option value="tag"> Tag </option>
@@ -141,10 +142,9 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
           </select>
         </label>
       </section>
-      <section>
+      <section id="filter-input">
         <form onSubmit={handleSubmit}>
           <label>
-            Enter a Filter
             <input
               type="text"
               onChange={handleInputTextChange}
@@ -167,35 +167,86 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
   );
 }
 
-function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
-  const [ordering, setOrdering] = React.useState<Ordering>("OrderByID" as Ordering);
-  const translateOrdering = (s: string) => {
-    if (s === "id") {
-      return "OrderByID" as Ordering;
-    } else if (s === "name") {
-      return "OrderByName" as Ordering;
-    } else if (s === "status") {
-      return "OrderByStatus" as Ordering;
+function LimitMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
+  const [inputText, setInputText] = React.useState<string>("");
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    props.setQuery((q) => {
+        const l = parseInt(inputText, 10);
+	return {...q, queryLimit: l};
+      }
+    );
+    setInputText("");
+  };
+  const handleLimitChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputText(event.target.value);
+  };
+  return (
+    <div className="LimitMenu">
+      <form onSubmit={handleSubmit}>
+        <label>
+          <p className="menu-label"> Limit </p>
+	  <input type="number" id="limit" name="limit" min="1" onChange={handleLimitChange} />
+        </label>
+      </form>
+    </div>
+  );
+}
+
+function mkOrdering(t: string, d: string): Ordering {
+  const d_: () => OrderingDirection = () => {
+    if (d === "ascending") {
+      return "Ascending";
+    } else if (d === "descending") {
+      return "Descending";
     } else {
       throw new Error("Impossible");
     }
   };
+  if (t === "id") {
+    return { tag: "OrderByID", contents: d_()};
+  } else if (t === "name") {
+    return { tag: "OrderByName", contents: d_() };
+  } else if (t === "status") {
+    return { tag: "OrderByStatus", contents: d_()};
+  } else {
+    throw new Error("Impossible");
+  }
+}
+
+function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
+  const [ordering, setOrdering] = React.useState<string>("id");
+  const [direction, setDirection] = React.useState<string>("ascending");
+  const handleChange = (_event: React.MouseEvent<HTMLButtonElement>) => {
+    props.setQuery((q) => {
+        const o = mkOrdering(ordering, direction);
+        console.log(JSON.stringify(o));
+        return {...q, queryOrderings: [o]};
+      }
+    );
+  };
   const handleOrderingChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const o = translateOrdering(event.target.value);
-    setOrdering(o);
-    props.setQuery((q) => { return {...q, queryOrderings: [o] }; });
+    setOrdering(event.target.value);
+  };
+  const handleDirectionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setDirection(event.target.value);
   };
   return (
     <div className="OrderingMenu">
       <form>
         <label>
-          Choose Ordering
+          <p className="menu-label"> Ordering </p>
           <select name="ordering" id="ordering" onChange={handleOrderingChange}>
             <option value="id"> ID </option>
             <option value="name"> Name </option>
             <option value="status"> Status </option>
           </select>
+          <select name="direction" id="direction" onChange={handleDirectionChange}>
+            <option value="ascending"> Ascending </option>
+            <option value="descending"> Descending </option>
+          </select>
         </label>
+        <button type="button" onClick={handleChange}> Sort </button>
       </form>
     </div>
   );
@@ -212,12 +263,38 @@ function TicketDetailsView(props: { td: TicketDetails }) {
     <dd>{props.td.tdTicket.status}</dd>
     <dt>Description</dt>
     <dd>{props.td.tdTicket.description}</dd>
+    <dt>Tags</dt>
+    <dd>
+      <ul className="csl">
+        { props.td.tdTags.map((tag) =>
+            <li> { tag.unTag } </li>
+          )
+        }
+      </ul>
+    </dd>
+    <dt>Relationships</dt>
+    <dd>
+      { props.td.tdRelationships.map(([rel, tickets]) =>
+          <dl className="Relationship">
+          <dt> { rel } </dt>
+          <dd>
+            <ul className="csl">
+              { tickets.map((ticketID) =>
+                  <li> "{ ticketID.unTicketID }" </li>
+                )
+              }
+            </ul>
+          </dd>
+          </dl>
+        )
+      }
+    </dd>
     </dl>
   );
 }
 
 function Tickets() {
-  const [q, setQuery] = React.useState<Query>({ queryFilters: [], queryOrderings: [], queryLimit: 100 });
+  const [q, setQuery] = React.useState<Query>({ queryFilters: [], queryOrderings: [], queryLimit: null });
   const [ tickets, setTickets ] = React.useState<TicketDetails[]>([]) 
   React.useEffect(() =>
     { const setEm = async () =>
@@ -232,8 +309,8 @@ function Tickets() {
       <section>
         <FilterMenu query={q} setQuery={setQuery}/>
         <OrderingMenu query={q} setQuery={setQuery}/>
+        <LimitMenu query={q} setQuery={setQuery}/>
       </section>
-      <section> { JSON.stringify(q) } </section>
       <section>
         <ul id="tickets">
           { tickets.map(td =>

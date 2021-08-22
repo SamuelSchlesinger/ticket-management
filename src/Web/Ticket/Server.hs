@@ -9,7 +9,6 @@ import Data.Ticket
 import TicketManager
 import Control.Monad.IO.Class (liftIO)
 import Web.Ticket.Api (TicketApi)
-import Network.Wai.Middleware.AddHeaders (addHeaders)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Network.Wai.Middleware.Autohead (autohead)
 import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))

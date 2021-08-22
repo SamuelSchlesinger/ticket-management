@@ -2,15 +2,59 @@
   text-align: center;
 }
 
+ul.csl {
+  list-style-type: none;
+  display: inline;
+  overflow: hidden;
+  padding: 0px;
+}
+
+ul.csl li {
+  display: inline;
+}
+
+ul.csl li::after {
+  content: ", ";
+}
+
+ul.csl li:last-child::after {
+  content: "";
+}
+  
+
+.FilterMenu, .OrderingMenu, .LimitMenu {
+  float: left;
+  overflow: hidden;
+  text-align: center;
+  clear: left;
+}
+
 ul#tickets {
   list-style-type: none;
 }
 
 ul#filters {
   list-style-type: none;
-  overflow: hidden;
+  overflow: auto;
   padding: 0;
   margin: 0;
+  float: left;
+}
+
+section#filter-type-input {
+  float: left;
+}
+
+p.menu-label {
+  float: left;
+  text-align: left;
+  width: 8ch;
+  padding: 0;
+  margin: 0;
+}
+
+section#filter-input {
+  float:left;
 }
 
 ul#filters li {
@@ -25,18 +69,23 @@ ul#filters li button {
   margin: 6px;
 }
 
-dl {
+dl.TicketDetails {
   border: 3px double #ccc;
   padding: 0.5em;
+  clear: both;
+  margin-right: 2%;
+}
+
+dl.Relationship {
+  
 }
 
 dt {
   float: left;
   clear: left;
-  width: 100px;
+  width: 15ch;
   font-weight: bold;
   text-align: right;
-  text-decoration: underline;
   text-align: left;
 }
 

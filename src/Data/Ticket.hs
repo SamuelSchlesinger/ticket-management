@@ -19,6 +19,7 @@ import qualified Data.Set as Set
 import qualified Data.ByteString as BS
 import qualified UnliftIO.IO.File as FileIO
 import qualified Data.Aeson.TypeScript.TH as TS
+import Data.Ord (Down(Down))
 import Imports
 
 -- | Execute the commands on the 'TicketSystem' stored in binary
@@ -193,18 +194,26 @@ data Filter =
 
 -- | Order the result of executing a 'Query'.
 data Ordering =
-    OrderByName
+    OrderByName OrderingDirection
     -- ^ Order results by name
-  | OrderByID
+  | OrderByID OrderingDirection
     -- ^ Order results by ID
-  | OrderByStatus
+  | OrderByStatus OrderingDirection
     -- ^ Order results by status
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json Ordering
 
+-- | Order ascending or descending?
+data OrderingDirection =
+    Ascending
+  | Descending
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (Serialize)
+  deriving (ToJSON, FromJSON) via Json OrderingDirection
+
 -- | Limit the results of executing a 'Query'.
-data Limit = Limit (Maybe Int)
+newtype Limit = Limit Int
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json Limit
@@ -214,7 +223,7 @@ data Limit = Limit (Maybe Int)
 data Query = Query
   { queryFilters :: [Filter]
   , queryOrderings :: [Ordering]
-  , queryLimit :: Limit
+  , queryLimit :: Maybe Limit
   }
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
@@ -294,14 +303,18 @@ queryModel query ts = limit . order . filter' $ allTicketDetails ts where
           Nothing -> False
   order :: [TicketDetails] -> [TicketDetails]
   order = appEndo $ foldMap orderingSort (queryOrderings query) where
+    sortOnWithDir :: Ord a => OrderingDirection -> (TicketDetails -> a) -> [TicketDetails] -> [TicketDetails]
+    sortOnWithDir = \case
+      Ascending -> sortOn . (Down .)
+      Descending -> sortOn
     orderingSort = Endo . \case
-      OrderByName -> sortOn (name . tdTicket)
-      OrderByID -> sortOn tdTicketID
-      OrderByStatus -> sortOn (status . tdTicket)
+      OrderByName dir -> sortOnWithDir dir (name . tdTicket)
+      OrderByID dir -> sortOnWithDir dir tdTicketID
+      OrderByStatus dir -> sortOnWithDir dir (status . tdTicket)
   limit :: [TicketDetails] -> [TicketDetails]
   limit = case queryLimit query of
-      Limit (Just n) -> take (fromIntegral n)
-      Limit Nothing -> id
+      Just (Limit n) -> take (fromIntegral n)
+      Nothing -> id
 
 -- | A statement which operates on the 'TicketModel'. These are what the user specifies
 -- by a command line invocation.
@@ -437,5 +450,6 @@ $(TS.deriveTypeScript aesonOptions ''Tag)
 $(TS.deriveTypeScript aesonOptions ''RelationshipType)
 $(TS.deriveTypeScript aesonOptions ''Filter)
 $(TS.deriveTypeScript aesonOptions ''Limit)
+$(TS.deriveTypeScript aesonOptions ''OrderingDirection)
 $(TS.deriveTypeScript aesonOptions ''Ordering)
 $(TS.deriveTypeScript aesonOptions ''Query)

@@ -12,7 +12,7 @@ export type Query = IQuery;
 export interface IQuery {
   queryFilters: Filter[];
   queryOrderings: Ordering[];
-  queryLimit: Limit;
+  queryLimit: Limit | null;
 }
 
 export type Command = ICreateTicket | IChangeTicket | ICreateRelationship | ICreateTags | IRemoveTags | IRemoveRelationship;
@@ -105,11 +105,28 @@ export interface IFilterByRelationshipFrom {
   contents: [RelationshipType, TicketID];
 }
 
-export type Ordering = "OrderByName" | "OrderByID" | "OrderByStatus";
+export type Ordering = IOrderByName | IOrderByID | IOrderByStatus;
+
+export interface IOrderByName {
+  tag: "OrderByName";
+  contents: OrderingDirection;
+}
+
+export interface IOrderByID {
+  tag: "OrderByID";
+  contents: OrderingDirection;
+}
+
+export interface IOrderByStatus {
+  tag: "OrderByStatus";
+  contents: OrderingDirection;
+}
 
 export type Limit = ILimit;
 
 export type ILimit = number;
+
+export type OrderingDirection = "Ascending" | "Descending";
 
 export type Tag = ITag;
 

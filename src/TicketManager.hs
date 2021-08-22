@@ -76,6 +76,7 @@ program filepath ticketStatement = do
         getTypeScriptDeclarations (Proxy @Ordering),
         getTypeScriptDeclarations (Proxy @Limit),
         getTypeScriptDeclarations (Proxy @Ordering),
+        getTypeScriptDeclarations (Proxy @OrderingDirection),
         getTypeScriptDeclarations (Proxy @Tag)
         ]
 
@@ -108,12 +109,15 @@ parser = flip info mods . hsubparser . mconcat $
       ] 
     descriptionOption = strOption (long "description" <> short 'd' <> metavar "DESCRIPTION" <> help "The description of the ticket")
     queryOrderingReadM = byExample
-      [("name", OrderByName)
-      ,("id", OrderByID)
-      ,("status", OrderByStatus)
+      [("name-asc", OrderByName Ascending)
+      ,("id-asc", OrderByID Ascending)
+      ,("status-asc", OrderByStatus Ascending)
+      ,("name-desc", OrderByName Descending)
+      ,("id-desc", OrderByID Descending)
+      ,("status-desc", OrderByStatus Descending)
       ]
     queryOrderingOption = option queryOrderingReadM (long "ordering" <> short 'o' <> metavar "ORDERING" <> help "The desired ordering of the resulting tickets (can use multiple). Can be name, id, or status.")
-    queryLimitOption = option (Limit . Just <$> auto) (long "limit" <> short 'l' <> metavar "LIMIT" <> help "The maximum number of tickets to show" <> value (Limit Nothing))
+    queryLimitOption = option (Just . Limit <$> auto) (long "limit" <> short 'l' <> metavar "LIMIT" <> help "The maximum number of tickets to show" <> value Nothing)
     relationshipTypeOption = option relationshipTypeReadM (long "relationship-type" <> short 'r' <> metavar "RELATIONSHIP_TYPE" <> help "The type of the relationship to set. Can be blocks or subsumes.")
     relationshipTypeReadM = byExample
       [ ("blocks", Blocks)
