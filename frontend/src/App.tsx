@@ -265,7 +265,7 @@ function TicketDetailsView(props: { td: TicketDetails }) {
     <dd>{props.td.tdTicket.description}</dd>
     <dt>Tags</dt>
     <dd>
-      <ul className="csl">
+      <ul className="comma-separated-list">
         { props.td.tdTags.map((tag) =>
             <li> { tag.unTag } </li>
           )
@@ -275,17 +275,17 @@ function TicketDetailsView(props: { td: TicketDetails }) {
     <dt>Relationships</dt>
     <dd>
       { props.td.tdRelationships.map(([rel, tickets]) =>
-          <dl className="Relationship">
-          <dt> { rel } </dt>
-          <dd>
-            <ul className="csl">
+          <ul className="colon-separated-list">
+          <li className="embolden"> { rel } </li>
+          <li>
+            <ul className="comma-separated-list">
               { tickets.map((ticketID) =>
                   <li> "{ ticketID.unTicketID }" </li>
                 )
               }
             </ul>
-          </dd>
-          </dl>
+          </li>
+          </ul>
         )
       }
     </dd>

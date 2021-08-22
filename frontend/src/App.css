@@ -2,22 +2,45 @@
   text-align: center;
 }
 
-ul.csl {
+ul.colon-separated-list {
   list-style-type: none;
   display: inline;
   overflow: hidden;
   padding: 0px;
 }
 
-ul.csl li {
+ul.colon-separated-list li {
   display: inline;
 }
 
-ul.csl li::after {
+.embolden {
+  font-weight: bold;
+}
+
+ul.colon-separated-list li::after {
+  content: ": ";
+}
+
+ul.colon-separated-list li:last-child::after {
+  content: "";
+}
+
+ul.comma-separated-list {
+  list-style-type: none;
+  display: inline;
+  overflow: hidden;
+  padding: 0px;
+}
+
+ul.comma-separated-list li {
+  display: inline;
+}
+
+ul.comma-separated-list li::after {
   content: ", ";
 }
 
-ul.csl li:last-child::after {
+ul.comma-separated-list li:last-child::after {
   content: "";
 }
   
@@ -76,8 +99,18 @@ dl.TicketDetails {
   margin-right: 2%;
 }
 
-dl.Relationship {
-  
+ul.Relationship dt {
+  float: left;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  width: 10ch;
+}
+
+dl.Relationship dd {
+  float: left;
+  text-align: left;
+  width: 10ch;
 }
 
 dt {
