@@ -140,7 +140,7 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
       <section id="filter-type-input">
         <label>
           <p className="menu-label"> Filter </p>
-          <select name="filter-type" id="filter-type" onChange={handleFilterTypeChange}>
+          <select name="filter-type" className="menu-input" id="filter-type" onChange={handleFilterTypeChange}>
             <option value="name"> Name </option>
             <option value="tag"> Tag </option>
             <option value="id"> ID </option>
@@ -156,7 +156,7 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
         <form onSubmit={handleSubmit}>
           <label>
             { ifThenElse(filterType === "status",
-              <select name="status" id="status" onChange={handleInputTextChangeStatus}>
+              <select name="status" className="menu-input" id="status" onChange={handleInputTextChangeStatus}>
                 <option value="ToDo"> To Do </option>
                 <option value="InProgress"> In Progress </option>
                 <option value="Complete"> Complete </option>
@@ -165,13 +165,14 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
               ,
               <input
                 type="text"
+		className="menu-input"
                 onChange={handleInputTextChange}
                 value={inputText}
               />
               )
             }
           </label>
-          <button type="button" onClick={handleSubmit}> Filter </button>
+          <button type="button" className="menu-input" onClick={handleSubmit}> Filter </button>
         </form>
       </section>
       <section>
@@ -179,7 +180,7 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
           {props.query.queryFilters.map((item) => (
             <li key={JSON.stringify(item)}>
               {renderFilter(item)}
-              <button onClick={handleDeleteItem(item)}>×</button>
+              <button onClick={handleDeleteItem(item)} className="menu-input">×</button>
             </li>
           ))}
         </ul>
@@ -207,7 +208,7 @@ function LimitMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStat
       <form onSubmit={handleSubmit}>
         <label>
           <p className="menu-label"> Limit </p>
-	  <input type="number" id="limit" name="limit" min="1" onChange={handleLimitChange} />
+	  <input type="number" className="menu-input" id="limit" name="limit" min="1" onChange={handleLimitChange} />
         </label>
       </form>
     </div>
@@ -256,17 +257,17 @@ function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetS
       <form>
         <label>
           <p className="menu-label"> Ordering </p>
-          <select name="ordering" id="ordering" onChange={handleOrderingChange}>
+          <select name="ordering" className="menu-input" id="ordering" onChange={handleOrderingChange}>
             <option value="id"> ID </option>
             <option value="name"> Name </option>
             <option value="status"> Status </option>
           </select>
-          <select name="direction" id="direction" onChange={handleDirectionChange}>
+          <select name="direction" className="menu-input" id="direction" onChange={handleDirectionChange}>
             <option value="ascending"> Ascending </option>
             <option value="descending"> Descending </option>
           </select>
         </label>
-        <button type="button" onClick={handleChange}> Sort </button>
+        <button type="button" className="menu-input" onClick={handleChange}> Sort </button>
       </form>
     </div>
   );
