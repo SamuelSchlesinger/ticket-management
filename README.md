@@ -77,7 +77,7 @@ on Mac or Linux, you can install them via ghcup, which is my preferred method. Y
 must have yarn and npm installed, though for those I'm less familiar with the blest way of
 installation.
 
-After running `yarn build` in the `frontend` directory, you can navigate to the `build` subdirectory of `frontend` and
+After running `cabal install --overwrite-policy=always` in the root directory and `yarn build` in the `frontend` directory, you can navigate to the `build` subdirectory of `frontend` and
 execute `ticket-manager-server`, and navigate to `http://localhost:3001`. Automating the installation of this artifact in a standard location so the server can be run from anywhere would be a good idea.
 
 # Contribution
