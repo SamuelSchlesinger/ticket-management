@@ -1,9 +1,11 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
 module Web.Ticket.Server (runServer) where
 
+import Data.SOP.BasicFunctors (I(..))
 import Servant
 import Data.Ticket
 import TicketManager
@@ -31,6 +33,7 @@ server filepath =
   :<|> postInit filepath
   :<|> getValidate filepath
   :<|> getGraphViz filepath
+  :<|> pure (inject @(WithStatus 302 (Headers '[Header "Location" String] ())) (I (WithStatus (addHeader "/index.html" ()))))
   :<|> serveDirectoryWebApp "/Users/samuelschlesinger/GitHub/SamuelSchlesinger/ticket-management/frontend/build"
 
 postCommands :: FilePath -> [Command] -> Handler NoContent
