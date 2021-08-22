@@ -1,7 +1,7 @@
 import React from 'react';
 import equal from 'fast-deep-equal';
 import './App.css';
-import { OrderingDirection, Query, TicketDetails, Filter, Ordering } from './Api';
+import { OrderingDirection, Query, TicketID, TicketDetails, Filter, Ordering } from './Api';
 
 function query(q : Query): Promise<TicketDetails[]> {
   return fetch('http://localhost:3001/query',
@@ -101,6 +101,14 @@ function renderFilter(f: Filter): string {
   }
 }
 
+function ifThenElse<X>(cond: boolean, x1: X, x2: X): X {
+  if (cond) {
+    return x1;
+  } else {
+    return x2;
+  }
+}
+
 function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
   const [inputText, setInputText] = React.useState("");
   const [filterType, setFilterType] = React.useState<FilterType>("name");
@@ -108,6 +116,8 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
     setFilterType(event.target.value as FilterType);
   };
   const handleInputTextChange = (event: React.ChangeEvent<HTMLInputElement>) =>
+    setInputText(event.target.value);
+  const handleInputTextChangeStatus = (event: React.ChangeEvent<HTMLSelectElement>) =>
     setInputText(event.target.value);
   const handleDeleteItem = (item: Filter) => (
     _event: React.MouseEvent<HTMLButtonElement>
@@ -145,12 +155,23 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
       <section id="filter-input">
         <form onSubmit={handleSubmit}>
           <label>
-            <input
-              type="text"
-              onChange={handleInputTextChange}
-              value={inputText}
-            />
+            { ifThenElse(filterType === "status",
+              <select name="status" id="status" onChange={handleInputTextChangeStatus}>
+                <option value="ToDo"> To Do </option>
+                <option value="InProgress"> In Progress </option>
+                <option value="Complete"> Complete </option>
+                <option value="WontFix"> Won't Fix </option>
+              </select>
+              ,
+              <input
+                type="text"
+                onChange={handleInputTextChange}
+                value={inputText}
+              />
+              )
+            }
           </label>
+          <button type="button" onClick={handleSubmit}> Filter </button>
         </form>
       </section>
       <section>
@@ -220,7 +241,6 @@ function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetS
   const handleChange = (_event: React.MouseEvent<HTMLButtonElement>) => {
     props.setQuery((q) => {
         const o = mkOrdering(ordering, direction);
-        console.log(JSON.stringify(o));
         return {...q, queryOrderings: [o]};
       }
     );
@@ -252,13 +272,19 @@ function OrderingMenu(props: { query: Query, setQuery: React.Dispatch<React.SetS
   );
 }
 
-function TicketDetailsView(props: { td: TicketDetails }) {
+function TicketDetailsView(props: { td: TicketDetails, setQuery: React.Dispatch<React.SetStateAction<Query>>}) {
+  const seeOneTicket = (tid:TicketID) => (_e: React.MouseEvent<HTMLButtonElement>) => {
+    props.setQuery((q) => {
+      return {...q, queryFilters: [{tag: "FilterByID", contents: tid}]};
+    }
+    );
+  }
   return (
     <dl className="TicketDetails">
     <dt>Ticket ID</dt>
     <dd>"{props.td.tdTicketID.unTicketID}"</dd>
     <dt>Name</dt>
-    <dd>{props.td.tdTicket.name}</dd>
+    <dd>"{props.td.tdTicket.name}"</dd>
     <dt>Status</dt>
     <dd>{props.td.tdTicket.status}</dd>
     <dt>Description</dt>
@@ -280,7 +306,7 @@ function TicketDetailsView(props: { td: TicketDetails }) {
           <li>
             <ul className="comma-separated-list">
               { tickets.map((ticketID) =>
-                  <li> "{ ticketID.unTicketID }" </li>
+                  <li> <button onClick={seeOneTicket(ticketID)}> "{ ticketID.unTicketID }" </button> </li>
                 )
               }
             </ul>
@@ -294,7 +320,7 @@ function TicketDetailsView(props: { td: TicketDetails }) {
 }
 
 function Tickets() {
-  const [q, setQuery] = React.useState<Query>({ queryFilters: [], queryOrderings: [], queryLimit: null });
+  const [q, setQuery] = React.useState<Query>({ queryFilters: [], queryOrderings: [{tag: "OrderByID", contents: "Ascending"}], queryLimit: null });
   const [ tickets, setTickets ] = React.useState<TicketDetails[]>([]) 
   React.useEffect(() =>
     { const setEm = async () =>
@@ -315,7 +341,7 @@ function Tickets() {
         <ul id="tickets">
           { tickets.map(td =>
             { return ( <li>
-                       <TicketDetailsView td={td} key={td.tdTicketID.unTicketID} />
+                       <TicketDetailsView td={td} setQuery={setQuery} key={td.tdTicketID.unTicketID} />
                        </li>
               );
             }
