@@ -2,6 +2,7 @@ import React from 'react';
 import equal from 'fast-deep-equal';
 import './App.css';
 import { OrderingDirection, Query, TicketID, TicketDetails, Filter, Ordering } from './Api';
+import styled from 'styled-components';
 
 function query(q : Query): Promise<TicketDetails[]> {
   return fetch('http://localhost:3001/query',
@@ -109,6 +110,13 @@ function ifThenElse<X>(cond: boolean, x1: X, x2: X): X {
   }
 }
 
+const Menu = styled.div`
+  float: left;
+  overflow: hidden;
+  text-align: center;
+  clear: left;
+`
+
 function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetStateAction<Query>> }) {
   const [inputText, setInputText] = React.useState("");
   const [filterType, setFilterType] = React.useState<FilterType>("name");
@@ -136,7 +144,7 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
     setInputText("");
   };
   return (
-    <div className="FilterMenu">
+    <Menu className="FilterMenu">
       <section id="filter-type-input">
         <label>
           <p className="menu-label"> Filter </p>
@@ -185,7 +193,7 @@ function FilterMenu(props: { query: Query, setQuery: React.Dispatch<React.SetSta
           ))}
         </ul>
       </section>
-    </div>
+    </Menu>
   );
 }
 

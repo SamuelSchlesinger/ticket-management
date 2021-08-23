@@ -53,13 +53,6 @@ ul.comma-separated-list li:last-child::after {
   background-color: white;
 }
 
-.FilterMenu, .OrderingMenu, .LimitMenu {
-  float: left;
-  overflow: hidden;
-  text-align: center;
-  clear: left;
-}
-
 ul#tickets {
   list-style-type: none;
 }

@@ -8,6 +8,7 @@
 module TicketManager (main, program, runQuery, runCommands, runValidate, runInit, runGraphViz) where
 
 import System.Exit (exitFailure)
+import System.Directory (getHomeDirectory, setCurrentDirectory)
 import Data.Ticket
 import Options.Applicative
 import Imports
@@ -74,7 +75,9 @@ program filepath ticketStatement = do
           False -> fail "Ticket system's commands are invalid"
           True -> putStrLn "Ticket system is valid"
     Serve port -> lookupEnv "TICKET_SYSTEM" >>= \case
-      Just x -> runServer x port
+      Just x -> do
+        getHomeDirectory >>= setCurrentDirectory . (<> "/.ticket-manager")
+        runServer x port
       Nothing -> putStrLn "Trying to start server without TICKET_SYSTEM environment variable set" >> exitFailure
     TypeScript -> do
       putStrLn $ formatTSDeclarations' typeScriptFormattingOptions $ typeScriptTypes
