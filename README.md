@@ -78,7 +78,7 @@ must have yarn and npm installed, though for those I'm less familiar with the bl
 installation.
 
 After running `./gen-types.sh --overwrite-policy=always` in the root directory and `yarn build` in the `frontend` directory, you can navigate to the `build` subdirectory of `frontend` and
-execute `ticket-manager-server`, and navigate to `http://localhost:3001`. Automating the installation of this artifact in a standard location so the server can be run from anywhere would be a good idea.
+execute `ticket-manager serve -p 3001`, and navigate to `http://localhost:3001`. Automating the installation of this artifact in a standard location so the server can be run from anywhere would be a good idea.
 
 # Contribution
 
