@@ -1,16 +1,27 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 module TicketManager (main, program, runQuery, runCommands, runValidate, runInit, runGraphViz) where
 
+import System.Exit (exitFailure)
 import Data.Ticket
 import Options.Applicative
 import Imports
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
-import Data.List (nub)
-import Data.Aeson.TypeScript.TH (formatTSDeclarations', getTypeScriptDeclarations, FormattingOptions(..), ExportMode(ExportEach), SumTypeFormat(EnumWithType))
+import Data.Aeson.TypeScript.TH (formatTSDeclarations', FormattingOptions(..), ExportMode(ExportEach), SumTypeFormat(EnumWithType))
+import Data.SOP.BasicFunctors (I(..))
+import Servant
+import Control.Monad.IO.Class (liftIO)
+import Web.Ticket.Api (TicketApi, typeScriptTypes)
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import Network.Wai.Middleware.Autohead (autohead)
+import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))
+import Network.Wai.Handler.Warp (run, Port)
 
 program' :: TicketStatement -> IO ()
 program' ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
@@ -62,23 +73,11 @@ program filepath ticketStatement = do
     ValidateStatement -> runValidate filepath >>= \case
           False -> fail "Ticket system's commands are invalid"
           True -> putStrLn "Ticket system is valid"
+    Serve port -> lookupEnv "TICKET_SYSTEM" >>= \case
+      Just x -> runServer x port
+      Nothing -> putStrLn "Trying to start server without TICKET_SYSTEM environment variable set" >> exitFailure
     TypeScript -> do
-      putStrLn $ formatTSDeclarations' typeScriptFormattingOptions . nub . mconcat $ [
-        getTypeScriptDeclarations (Proxy @TicketDetails),
-        getTypeScriptDeclarations (Proxy @Query),
-        getTypeScriptDeclarations (Proxy @Command),
-        getTypeScriptDeclarations (Proxy @RelationshipType),
-        getTypeScriptDeclarations (Proxy @TicketID),
-        getTypeScriptDeclarations (Proxy @Ticket),
-        getTypeScriptDeclarations (Proxy @TicketStatus),
-        getTypeScriptDeclarations (Proxy @TicketDiff),
-        getTypeScriptDeclarations (Proxy @Filter),
-        getTypeScriptDeclarations (Proxy @Ordering),
-        getTypeScriptDeclarations (Proxy @Limit),
-        getTypeScriptDeclarations (Proxy @Ordering),
-        getTypeScriptDeclarations (Proxy @OrderingDirection),
-        getTypeScriptDeclarations (Proxy @Tag)
-        ]
+      putStrLn $ formatTSDeclarations' typeScriptFormattingOptions $ typeScriptTypes
 
 parser :: ParserInfo TicketStatement
 parser = flip info mods . hsubparser . mconcat $
@@ -92,6 +91,7 @@ parser = flip info mods . hsubparser . mconcat $
   , command "validate" (info validate (progDesc "Validate the ticket system"))
   , command "graphviz" (info graphviz (progDesc "Output a dot formatted file describing a relation graph"))
   , command "typescript" (info typescript (progDesc "Output typescript declarations for the servant API"))
+  , command "serve" (info serve' (progDesc "Serve the HTTP API"))
   ]
   where
     mods = header "Ticket Manager!" <> footer "Copyright 2021 (c) Samuel Schlesinger" <> progDesc "Allows the user to manage work tickets."
@@ -123,6 +123,8 @@ parser = flip info mods . hsubparser . mconcat $
       [ ("blocks", Blocks)
       , ("subsumes", Subsumes)
       ]
+    portOption = option auto (long "port" <> short 'p' <> metavar "PORT" <> help "The port to run the service on")
+    serve' = Serve <$> portOption
     filterOption =
           (FilterByName <$> nameOption)
       <|> (FilterByTag <$> tagOption)
@@ -164,3 +166,42 @@ main = customExecParser ps parser >>= program' where
     , showHelpOnEmpty
     , columns 80
     ]
+
+runServer :: FilePath -> Port -> IO ()
+runServer filepath port = run port . middleware $ application filepath where
+  middleware =
+      logStdoutDev
+    . autohead
+    . cors ( const $ Just (simpleCorsResourcePolicy  { corsRequestHeaders = ["Content-Type"] }) )
+
+application :: FilePath -> Application
+application = serve (Proxy @TicketApi) . server
+
+server :: FilePath -> Server TicketApi
+server filepath =
+       postCommands filepath 
+  :<|> getQuery filepath
+  :<|> postInit filepath
+  :<|> getValidate filepath
+  :<|> getGraphViz filepath
+  :<|> pure (inject @(WithStatus 302 (Headers '[Header "Location" String] ())) (I (WithStatus (addHeader "/index.html" ()))))
+  :<|> serveDirectoryWebApp "/Users/samuelschlesinger/GitHub/SamuelSchlesinger/ticket-management/frontend/build"
+
+postCommands :: FilePath -> [Command] -> Handler NoContent
+postCommands filepath cs = NoContent <$ (liftIO $ runCommands filepath cs)
+
+getQuery :: FilePath -> Query -> Handler [TicketDetails]
+getQuery filepath q = liftIO $ runQuery filepath q
+
+getValidate :: FilePath -> Handler NoContent
+getValidate filepath = liftIO (runValidate filepath) >>= \case
+  True -> pure NoContent
+  False -> throwError err500 { errBody = "The ticket data is corrupted" }
+
+postInit :: FilePath -> Handler NoContent
+postInit filepath = liftIO (runInit filepath) >>= \case
+  True -> pure NoContent
+  False -> throwError err409 { errBody = "Trying to initialize a pre-existing ticket system" }
+
+getGraphViz :: FilePath -> RelationshipType -> Query -> Handler String
+getGraphViz filepath relType q = liftIO (runGraphViz filepath relType q)

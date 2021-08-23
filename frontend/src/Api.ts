@@ -1,27 +1,3 @@
-export type TicketDetails = ITicketDetails;
-
-export interface ITicketDetails {
-  tdTicketID: TicketID;
-  tdTicket: Ticket;
-  tdTags: Tag[];
-  tdRelationships: [RelationshipType, TicketID[]][];
-}
-
-export type Query = IQuery;
-
-export interface IQuery {
-  queryFilters: Filter[];
-  queryOrderings: Ordering[];
-  queryLimit: Limit | null;
-}
-
-export type Command = ICreateTicket | IChangeTicket | ICreateRelationship | ICreateTags | IRemoveTags | IRemoveRelationship;
-
-export interface ICreateTicket {
-  tag: "CreateTicket";
-  contents: [TicketID, Ticket];
-}
-
 export interface IChangeTicket {
   tag: "ChangeTicket";
   contents: [TicketID, TicketDiff];
@@ -37,47 +13,9 @@ export interface ICreateTags {
   contents: [TicketID, Tag[]];
 }
 
-export interface IRemoveTags {
-  tag: "RemoveTags";
-  contents: [TicketID, Tag[]];
-}
-
-export interface IRemoveRelationship {
-  tag: "RemoveRelationship";
-  contents: [TicketID, RelationshipType, TicketID];
-}
-
-export type RelationshipType = "Blocks" | "Subsumes";
-
-export type TicketID = ITicketID;
-
-export interface ITicketID {
-  unTicketID: string;
-}
-
-export type Ticket = ITicket;
-
-export interface ITicket {
-  name: string;
-  description: string;
-  status: TicketStatus;
-}
-
-export type TicketStatus = "ToDo" | "InProgress" | "InReview" | "Complete" | "WontFix";
-
-export type TicketDiff = ITicketDiff;
-
-export interface ITicketDiff {
-  diffName: string | null;
-  diffDescription: string | null;
-  diffStatus: TicketStatus | null;
-}
-
-export type Filter = IFilterByName | IFilterByID | IFilterByTag | IFilterByStatus | IFilterByRelationshipTo | IFilterByRelationshipFrom;
-
-export interface IFilterByName {
-  tag: "FilterByName";
-  contents: string;
+export interface ICreateTicket {
+  tag: "CreateTicket";
+  contents: [TicketID, Ticket];
 }
 
 export interface IFilterByID {
@@ -85,19 +23,9 @@ export interface IFilterByID {
   contents: TicketID;
 }
 
-export interface IFilterByTag {
-  tag: "FilterByTag";
-  contents: Tag;
-}
-
-export interface IFilterByStatus {
-  tag: "FilterByStatus";
-  contents: TicketStatus;
-}
-
-export interface IFilterByRelationshipTo {
-  tag: "FilterByRelationshipTo";
-  contents: [RelationshipType, TicketID];
+export interface IFilterByName {
+  tag: "FilterByName";
+  contents: string;
 }
 
 export interface IFilterByRelationshipFrom {
@@ -105,15 +33,28 @@ export interface IFilterByRelationshipFrom {
   contents: [RelationshipType, TicketID];
 }
 
-export type Ordering = IOrderByName | IOrderByID | IOrderByStatus;
+export interface IFilterByRelationshipTo {
+  tag: "FilterByRelationshipTo";
+  contents: [RelationshipType, TicketID];
+}
 
-export interface IOrderByName {
-  tag: "OrderByName";
-  contents: OrderingDirection;
+export interface IFilterByStatus {
+  tag: "FilterByStatus";
+  contents: TicketStatus;
+}
+
+export interface IFilterByTag {
+  tag: "FilterByTag";
+  contents: Tag;
 }
 
 export interface IOrderByID {
   tag: "OrderByID";
+  contents: OrderingDirection;
+}
+
+export interface IOrderByName {
+  tag: "OrderByName";
   contents: OrderingDirection;
 }
 
@@ -122,14 +63,73 @@ export interface IOrderByStatus {
   contents: OrderingDirection;
 }
 
-export type Limit = ILimit;
+export interface IQuery {
+  queryFilters: Filter[];
+  queryOrderings: Ordering[];
+  queryLimit: Limit | null;
+}
 
-export type ILimit = number;
+export interface IRemoveRelationship {
+  tag: "RemoveRelationship";
+  contents: [TicketID, RelationshipType, TicketID];
+}
 
-export type OrderingDirection = "Ascending" | "Descending";
-
-export type Tag = ITag;
+export interface IRemoveTags {
+  tag: "RemoveTags";
+  contents: [TicketID, Tag[]];
+}
 
 export interface ITag {
   unTag: string;
 }
+
+export interface ITicket {
+  name: string;
+  description: string;
+  status: TicketStatus;
+}
+
+export interface ITicketDetails {
+  tdTicketID: TicketID;
+  tdTicket: Ticket;
+  tdTags: Tag[];
+  tdRelationships: [RelationshipType, TicketID[]][];
+}
+
+export interface ITicketDiff {
+  diffName: string | null;
+  diffDescription: string | null;
+  diffStatus: TicketStatus | null;
+}
+
+export interface ITicketID {
+  unTicketID: string;
+}
+
+export type Command = ICreateTicket | IChangeTicket | ICreateRelationship | ICreateTags | IRemoveTags | IRemoveRelationship;
+
+export type Filter = IFilterByName | IFilterByID | IFilterByTag | IFilterByStatus | IFilterByRelationshipTo | IFilterByRelationshipFrom;
+
+export type ILimit = number;
+
+export type Limit = ILimit;
+
+export type Ordering = IOrderByName | IOrderByID | IOrderByStatus;
+
+export type OrderingDirection = "Ascending" | "Descending";
+
+export type Query = IQuery;
+
+export type RelationshipType = "Blocks" | "Subsumes";
+
+export type Tag = ITag;
+
+export type Ticket = ITicket;
+
+export type TicketDetails = ITicketDetails;
+
+export type TicketDiff = ITicketDiff;
+
+export type TicketID = ITicketID;
+
+export type TicketStatus = "ToDo" | "InProgress" | "InReview" | "Complete" | "WontFix";

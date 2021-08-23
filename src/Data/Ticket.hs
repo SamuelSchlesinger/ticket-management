@@ -325,6 +325,7 @@ data TicketStatement =
   | ValidateStatement
   | GraphViz Query RelationshipType
   | TypeScript
+  | Serve Int
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json TicketStatement
