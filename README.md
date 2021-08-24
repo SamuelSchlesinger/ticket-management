@@ -77,8 +77,8 @@ on Mac or Linux, you can install them via ghcup, which is my preferred method. Y
 must have yarn and npm installed, though for those I'm less familiar with the blest way of
 installation.
 
-After running `./gen-types.sh --overwrite-policy=always` in the root directory and `yarn build` in the `frontend` directory, you can navigate to the `build` subdirectory of `frontend` and
-execute `ticket-manager serve -p 3001`, and navigate to `http://localhost:3001`. Automating the installation of this artifact in a standard location so the server can be run from anywhere would be a good idea.
+Run `./install.sh`, and then you can execute `ticket-manager serve -p 3001`, and navigate to `http://localhost:3001`.
+To add tickets, you must currently use the CLI.
 
 # Contribution
 

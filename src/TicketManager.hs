@@ -191,20 +191,30 @@ server filepath =
   :<|> serveDirectoryWebApp "/Users/samuelschlesinger/GitHub/SamuelSchlesinger/ticket-management/frontend/build"
 
 postCommands :: FilePath -> [Command] -> Handler NoContent
-postCommands filepath cs = NoContent <$ (liftIO $ runCommands filepath cs)
+postCommands filepath cs = do
+  liftIO $ putStrLn ("Running commands: " <> show cs)
+  NoContent <$ (liftIO $ runCommands filepath cs)
 
 getQuery :: FilePath -> Query -> Handler [TicketDetails]
-getQuery filepath q = liftIO $ runQuery filepath q
+getQuery filepath q = do
+  liftIO $ putStrLn ("Running query: " <> show q)
+  liftIO $ runQuery filepath q
 
 getValidate :: FilePath -> Handler NoContent
-getValidate filepath = liftIO (runValidate filepath) >>= \case
-  True -> pure NoContent
-  False -> throwError err500 { errBody = "The ticket data is corrupted" }
+getValidate filepath = do
+  liftIO $ putStrLn "Validating ticket system"
+  liftIO (runValidate filepath) >>= \case
+    True -> pure NoContent
+    False -> throwError err500 { errBody = "The ticket data is corrupted" }
 
 postInit :: FilePath -> Handler NoContent
-postInit filepath = liftIO (runInit filepath) >>= \case
-  True -> pure NoContent
-  False -> throwError err409 { errBody = "Trying to initialize a pre-existing ticket system" }
+postInit filepath = do
+  liftIO $ putStrLn "Initializing ticket system"
+  liftIO (runInit filepath) >>= \case
+    True -> pure NoContent
+    False -> throwError err409 { errBody = "Trying to initialize a pre-existing ticket system" }
 
 getGraphViz :: FilePath -> RelationshipType -> Query -> Handler String
-getGraphViz filepath relType q = liftIO (runGraphViz filepath relType q)
+getGraphViz filepath relType q = do
+  liftIO $ putStrLn ("Getting graphviz for " <> relType)
+  liftIO (runGraphViz filepath relType q)

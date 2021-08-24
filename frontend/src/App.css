@@ -57,14 +57,6 @@ ul#tickets {
   list-style-type: none;
 }
 
-ul#filters {
-  list-style-type: none;
-  overflow: auto;
-  padding: 0;
-  margin: 0;
-  float: left;
-}
-
 section#filter-type-input {
   float: left;
 }
@@ -79,21 +71,6 @@ p.menu-label {
 
 section#filter-input {
   float:left;
-}
-
-ul#filters li {
-  float: left;
-  text-align: center;
-  padding: 4px;
-  text-decoration: italic;
-  border-radius: 25px;
-  border: solid black;
-  background: white;
-}
-
-ul#filters li button {
-  margin: 4px;
-  background-color: white;
 }
 
 dl.TicketDetails {
