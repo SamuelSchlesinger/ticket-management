@@ -7,22 +7,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module TicketManager (main, program, runQuery, runCommands, runValidate, runInit, runGraphViz) where
 
-import System.Exit (exitFailure)
-import System.Directory (getHomeDirectory, setCurrentDirectory)
 import Data.Ticket
 import Options.Applicative
 import Imports
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
-import Data.Aeson.TypeScript.TH (formatTSDeclarations', FormattingOptions(..), ExportMode(ExportEach), SumTypeFormat(EnumWithType))
-import Data.SOP.BasicFunctors (I(..))
-import Servant
-import Control.Monad.IO.Class (liftIO)
-import Web.Ticket.Api (TicketApi, typeScriptTypes)
-import Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import Network.Wai.Middleware.Autohead (autohead)
-import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))
-import Network.Wai.Handler.Warp (run, Port)
 
 program' :: TicketStatement -> IO ()
 program' ticketStatement = lookupEnv "TICKET_SYSTEM" >>= \case
@@ -49,15 +38,6 @@ runInit filepath = doesFileExist filepath >>= \case
 runGraphViz :: FilePath -> RelationshipType -> Query -> IO String
 runGraphViz filepath rel q = withTicketSystem filepath (pure . graphViz q rel . ticketModel)
 
-typeScriptFormattingOptions :: FormattingOptions
-typeScriptFormattingOptions = FormattingOptions
-  { numIndentSpaces = 2
-  , interfaceNameModifier = id
-  , typeNameModifier = id
-  , exportMode = ExportEach
-  , typeAlternativesFormat = EnumWithType
-  }
-
 program :: FilePath -> TicketStatement -> IO ()
 program filepath ticketStatement = do
   let
@@ -74,13 +54,6 @@ program filepath ticketStatement = do
     ValidateStatement -> runValidate filepath >>= \case
           False -> fail "Ticket system's commands are invalid"
           True -> putStrLn "Ticket system is valid"
-    Serve port -> lookupEnv "TICKET_SYSTEM" >>= \case
-      Just x -> do
-        getHomeDirectory >>= setCurrentDirectory . (<> "/.ticket-manager")
-        runServer x port
-      Nothing -> putStrLn "Trying to start server without TICKET_SYSTEM environment variable set" >> exitFailure
-    TypeScript -> do
-      putStrLn $ formatTSDeclarations' typeScriptFormattingOptions $ typeScriptTypes
 
 parser :: ParserInfo TicketStatement
 parser = flip info mods . hsubparser . mconcat $
@@ -93,8 +66,6 @@ parser = flip info mods . hsubparser . mconcat $
   , command "tag" (info tag (progDesc "Applies some tags to tickets"))
   , command "validate" (info validate (progDesc "Validate the ticket system"))
   , command "graphviz" (info graphviz (progDesc "Output a dot formatted file describing a relation graph"))
-  , command "typescript" (info typescript (progDesc "Output typescript declarations for the servant API"))
-  , command "serve" (info serve' (progDesc "Serve the HTTP API"))
   ]
   where
     mods = header "Ticket Manager!" <> footer "Copyright 2021 (c) Samuel Schlesinger" <> progDesc "Allows the user to manage work tickets."
@@ -126,8 +97,6 @@ parser = flip info mods . hsubparser . mconcat $
       [ ("blocks", Blocks)
       , ("subsumes", Subsumes)
       ]
-    portOption = option auto (long "port" <> short 'p' <> metavar "PORT" <> help "The port to run the service on")
-    serve' = Serve <$> portOption
     filterOption =
           (FilterByName <$> nameOption)
       <|> (FilterByTag <$> tagOption)
@@ -155,7 +124,6 @@ parser = flip info mods . hsubparser . mconcat $
     validate = pure ValidateStatement
     graphRelationOption = option relationshipTypeReadM (long "graph-relation" <> short 'g' <> metavar "GRAPH_RELATION" <> help "The relation we will output a graph for")
     graphviz = GraphViz <$> queryBody <*> graphRelationOption
-    typescript = pure TypeScript
 
 byExample :: [(String, t)] -> ReadM t
 byExample xs = maybeReader (\x -> Just (lookup x xs)) >>= maybe (readerAbort (ErrorMsg $ "Invalid ticket status, perhaps you meant to try one of: " <> intercalate ", " (fmap fst xs))) pure
@@ -169,52 +137,3 @@ main = customExecParser ps parser >>= program' where
     , showHelpOnEmpty
     , columns 80
     ]
-
-runServer :: FilePath -> Port -> IO ()
-runServer filepath port = run port . middleware $ application filepath where
-  middleware =
-      logStdoutDev
-    . autohead
-    . cors ( const $ Just (simpleCorsResourcePolicy  { corsRequestHeaders = ["Content-Type"] }) )
-
-application :: FilePath -> Application
-application = serve (Proxy @TicketApi) . server
-
-server :: FilePath -> Server TicketApi
-server filepath =
-       postCommands filepath 
-  :<|> getQuery filepath
-  :<|> postInit filepath
-  :<|> getValidate filepath
-  :<|> getGraphViz filepath
-  :<|> pure (inject @(WithStatus 302 (Headers '[Header "Location" String] ())) (I (WithStatus (addHeader "/index.html" ()))))
-  :<|> serveDirectoryWebApp "/Users/samuelschlesinger/GitHub/SamuelSchlesinger/ticket-management/frontend/build"
-
-postCommands :: FilePath -> [Command] -> Handler NoContent
-postCommands filepath cs = do
-  liftIO $ putStrLn ("Running commands: " <> show cs)
-  NoContent <$ (liftIO $ runCommands filepath cs)
-
-getQuery :: FilePath -> Query -> Handler [TicketDetails]
-getQuery filepath q = do
-  liftIO $ putStrLn ("Running query: " <> show q)
-  liftIO $ runQuery filepath q
-
-getValidate :: FilePath -> Handler NoContent
-getValidate filepath = do
-  liftIO $ putStrLn "Validating ticket system"
-  liftIO (runValidate filepath) >>= \case
-    True -> pure NoContent
-    False -> throwError err500 { errBody = "The ticket data is corrupted" }
-
-postInit :: FilePath -> Handler NoContent
-postInit filepath = do
-  liftIO $ putStrLn "Initializing ticket system"
-  liftIO (runInit filepath) >>= \case
-    True -> pure NoContent
-    False -> throwError err409 { errBody = "Trying to initialize a pre-existing ticket system" }
-
-getGraphViz :: FilePath -> RelationshipType -> Query -> Handler String
-getGraphViz filepath relType q = do
-  liftIO $ putStrLn ("Getting graphviz for " <> relType)
-  liftIO (runGraphViz filepath relType q)

@@ -18,7 +18,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.ByteString as BS
 import qualified UnliftIO.IO.File as FileIO
-import qualified Data.Aeson.TypeScript.TH as TS
 import Data.Ord (Down(Down))
 import Imports
 
@@ -324,8 +323,6 @@ data TicketStatement =
   | InitializeStatement
   | ValidateStatement
   | GraphViz Query RelationshipType
-  | TypeScript
-  | Serve Int
   deriving stock (Eq, Ord, Show, Read, Generic)
   deriving anyclass (Serialize)
   deriving (ToJSON, FromJSON) via Json TicketStatement
@@ -386,16 +383,6 @@ data RelationshipType =
   deriving anyclass (Serialize, ToJSONKey, FromJSONKey)
   deriving (ToJSON, FromJSON) via Json RelationshipType
 
-instance ToHttpApiData RelationshipType where
-  toUrlPiece = \case
-    Blocks -> "blocks"
-    Subsumes -> "subsumes"
-
-instance FromHttpApiData RelationshipType where
-  parseUrlPiece "blocks" = Right Blocks
-  parseUrlPiece "subsumes" = Right Subsumes
-  parseUrlPiece _ = Left "Try one of: blocks, subsumes"
-
 instance Arbitrary RelationshipType where
   arbitrary = elements [Blocks, Subsumes]
   shrink = genericShrink
@@ -440,17 +427,3 @@ emptyTicketModel = TicketModel
   , relationships = Map.empty
   , tags = Map.empty
   }
-
-$(TS.deriveTypeScript aesonOptions ''TicketDetails)
-$(TS.deriveTypeScript aesonOptions ''Command)
-$(TS.deriveTypeScript aesonOptions ''TicketID)
-$(TS.deriveTypeScript aesonOptions ''Ticket)
-$(TS.deriveTypeScript aesonOptions ''TicketStatus)
-$(TS.deriveTypeScript aesonOptions ''TicketDiff)
-$(TS.deriveTypeScript aesonOptions ''Tag)
-$(TS.deriveTypeScript aesonOptions ''RelationshipType)
-$(TS.deriveTypeScript aesonOptions ''Filter)
-$(TS.deriveTypeScript aesonOptions ''Limit)
-$(TS.deriveTypeScript aesonOptions ''OrderingDirection)
-$(TS.deriveTypeScript aesonOptions ''Ordering)
-$(TS.deriveTypeScript aesonOptions ''Query)

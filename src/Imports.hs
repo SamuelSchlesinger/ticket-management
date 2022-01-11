@@ -37,8 +37,6 @@ module Imports
   , inits
   , ToJSONKey
   , aesonOptions
-  , ToHttpApiData(..)
-  , FromHttpApiData(..)
   , module Prelude
   ) where
 
@@ -63,7 +61,6 @@ import Test.QuickCheck (Arbitrary(..), choose, oneof, genericShrink, elements, s
 import Text.Printf (printf)
 import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import qualified Data.Aeson as Aeson
-import Servant.API (ToHttpApiData(..), FromHttpApiData(..))
 import Data.Proxy (Proxy(..))
 
 newtype Json a = Json { unJson :: a }
